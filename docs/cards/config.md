@@ -3,6 +3,8 @@ spec_path: docs/superpowers/specs/2026-07-09-nyx-drop-design.md
 gh_command: gh
 board_dir: docs/cards
 adr_dir: docs/adrs
+kanban_flow_version: "0.2.0"
+template_overrides: {}
 wip_limit: 3
 gates:
   slice: auto
@@ -34,6 +36,14 @@ the skills read it; **`/kanban` never rewrites it**, so it is safe to hand-edit.
   also requires editing every path reference in the skills/agents — leave them at
   the defaults unless you're prepared to do that. Full parameterization (so these
   keys alone control the location) is a future enhancement.
+- **kanban_flow_version** — the plugin version this board's config and scaffold
+  were last synced to. `/kanban-init` stamps it; `/migrate` updates it. `/kanban`
+  compares it to the installed plugin version to nudge you to run `/migrate`.
+- **template_overrides** — optional map from a template name (`card-template.md` |
+  `pr-template.md` | `design-pr-template.md`) to a repo-relative path. When an entry
+  is set, the skills read that file instead of the plugin's template; leave empty
+  (`{}`) to use the plugin templates. `/migrate` sets an entry automatically if it
+  finds a template you had customized.
 - **wip_limit** — max cards in flight at once.
 - **gates** — per-gate policy. `slice`: `auto` | `manual`. `design`: `pr` (the
   design PR is the review) | `domain` (interactive stop for `gate_layer` cards
