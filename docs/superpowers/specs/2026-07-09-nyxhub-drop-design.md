@@ -16,6 +16,7 @@ A self-hosted clone of Cloudflare Drop, deployable into a Kubernetes cluster. Us
 - Admin can download a site's contents as a zip.
 - Admin can delete a site immediately.
 - API to create sites programmatically by POST; response includes the site URL.
+- Existing sites can be updated in place (same URL); an update resets the TTL timer.
 - Uploads and the API are token-gated. Admin access is via GitHub OAuth restricted to a single configured GitHub user.
 
 ## Architecture overview
@@ -92,11 +93,25 @@ Success — `201 Created`:
 
 The URL scheme comes from the `SCHEME` config value (default `https`).
 
+### Updating a site
+
+`PUT /api/sites/{id}`
+`Authorization: Bearer <UPLOAD_TOKEN>`
+Body: same `multipart/form-data` format as creation (zip or multiple files).
+
+Replaces the site's contents entirely while keeping its URL, and **resets the timer**: `expires_at = now + TTL`. A permanent site can be updated too — its contents are replaced and it stays permanent. All extraction rules and safety limits apply as for creation.
+
+The swap is atomic per directory rename: the new content is extracted and validated in `/data/tmp`, the old site directory is renamed aside, the new one renamed into place, and the old content deleted. In-flight requests may briefly 404 between the two renames; this is accepted. Response is `200` with the same JSON shape as creation. Errors: `404` unknown id, plus the same `401`/`400`/`413` as creation.
+
+This enables stable URLs for CI use ("redeploy the preview for PR #42"): create once, then `PUT` to the returned `id` on every push.
+
 Errors: `401` bad/missing token, `413` size limits exceeded, `400` invalid archive / no files / path traversal detected.
 
 ### Upload page
 
 Served at `<SCHEME>://<BASE_DOMAIN>/`. Drag-and-drop of a zip file or a folder of files. Prompts for the upload token (remembered in `localStorage`), calls `POST /api/sites`, displays the resulting site URL with a copy button.
+
+Uploads show a **progress indicator** (percentage/bar driven by upload progress events) — with a 100MB body limit, silent uploads are not acceptable.
 
 Folder handling: dropped folders are walked recursively via the `DataTransferItem.webkitGetAsEntry()` API (and `<input webkitdirectory>` as fallback), and each file's relative path (`webkitRelativePath` or the walked entry path) is set as the slash-containing `filename` on its `FormData` part — matching the multipart format the API expects.
 
@@ -126,6 +141,14 @@ On success a signed session cookie is issued: name `__Host-session` (HMAC with `
 
 **CSRF protection:** all state-changing admin endpoints (`POST`/`DELETE`) additionally verify that the request's `Origin` (or `Referer`) header, when present, matches `<SCHEME>://<BASE_DOMAIN>`, on top of `SameSite=Lax`. All admin endpoints require a valid session.
 
+**Sign-in/out flow:**
+
+- `GET /admin` (or any admin page) without a valid session → `302` to `/auth/login`.
+- `GET /auth/login` → generates `state`, redirects to GitHub's authorize URL.
+- `GET /auth/callback` → verifies `state`, exchanges the code, checks the username, sets `__Host-session`, redirects to `/admin`.
+- `POST /auth/logout` (session + Origin check) → clears the session cookie, redirects to `/`. The admin UI shows a logout button.
+- A failed username check renders a "not authorized" page with no session issued.
+
 ### Admin UI
 
 Served at `<SCHEME>://<BASE_DOMAIN>/admin` (embedded static frontend compiled into the binary via `embed.FS`; plain HTML/JS, no build-time framework). Table of all sites: slug (linked to the live site), created, expires (or "permanent"), size, file count, source. Per-site actions: toggle permanent, download zip, delete (with confirm).
@@ -140,7 +163,7 @@ Served at `<SCHEME>://<BASE_DOMAIN>/admin` (embedded static frontend compiled in
 | `/api/admin/sites/{id}/download` | GET | Download a zip of the site's files (snapshot; see below) |
 | `/api/admin/sites/{id}` | DELETE | Delete site immediately (files + row) |
 
-**Listing:** `GET /api/admin/sites?page=1&per_page=50&sort=name|created|expires&order=asc|desc`. Defaults: `page=1`, `per_page=50`, `sort=created`, `order=desc`. Permanent sites sort last under `sort=expires` (they have no effective expiry). Response includes `total` so the UI can render pager controls; the admin table exposes all three sortable columns.
+**Listing:** `GET /api/admin/sites?page=1&per_page=50&sort=name|created|expires&order=asc|desc&q=<substring>`. Defaults: `page=1`, `per_page=50`, `sort=created`, `order=desc`. `q` filters by case-insensitive substring match on the slug. Permanent sites sort last under `sort=expires` (they have no effective expiry). Response includes `total` so the UI can render pager controls; the admin table exposes all three sortable columns and a **search box** wired to `q`.
 
 **Download:** to avoid a race with the reaper deleting files mid-stream, the handler first snapshots the site into a zip file under `/data/tmp`, then streams that file (`Content-Disposition: attachment; filename=<id>.zip`) and deletes it afterwards. If the site is reaped between snapshot start and completion the request fails cleanly with `404`; the client never receives a silently truncated archive.
 
@@ -215,7 +238,7 @@ The app fails fast at startup if any required variable is missing.
 ## Testing
 
 - **Unit:** slug generation (DNS-label validity, suffix charset, collision retry), zip extraction (happy path, traversal attempts, absolute paths, symlinks, size/count limits, sole-top-level-dir stripping, dotfile filtering), store operations incl. pagination/sorting, reaper logic with an injected fake clock, migration runner.
-- **Integration:** `httptest`-based tests exercising the full flow — upload (zip and multi-file) → serve → expire → 404; host routing (apex vs slug vs unknown, `/healthz` and `/metrics` on any host); auth failures (missing/wrong upload token, no session, wrong GitHub user, case-differing GitHub user succeeding); CSRF (cross-origin `Origin` header rejected); download-vs-reap race behavior.
+- **Integration:** `httptest`-based tests exercising the full flow — upload (zip and multi-file) → serve → expire → 404; update via `PUT` (contents replaced, timer reset, permanence preserved, unknown id → 404); host routing (apex vs slug vs unknown, `/healthz` and `/metrics` on any host); auth failures (missing/wrong upload token, no session, wrong GitHub user, case-differing GitHub user succeeding); sign-in redirect and logout flows; CSRF (cross-origin `Origin` header rejected); admin list pagination/sort/search; download-vs-reap race behavior.
 - **OAuth:** GitHub endpoints stubbed with a local test server (configurable OAuth base URL internally to allow this).
 
 ## Out of scope (v1)
@@ -225,3 +248,6 @@ The app fails fast at startup if any required variable is missing.
 - SPA fallback routing.
 - Custom domains per site.
 - Upload rate limiting (token-gated audience is trusted).
+- Site labels/descriptions and uploader attribution — sites are anonymous; the shared upload token means `source` (`api`/`web`) is the only provenance recorded.
+- Uploader-initiated delete — only the admin can delete a site (or update via `PUT`, which is the uploader's remedy for mistakes).
+- Expiry notifications (email/webhook warnings before teardown).
