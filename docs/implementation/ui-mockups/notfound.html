@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Site not found</title>
+<!-- Deliberately self-contained (inline CSS, no /static/ references): the real
+     notfound.html is served on site hosts where app assets do not exist. -->
+<style>
+  :root { --accent: #6d5ef2; --bg: #f7f7f9; --text: #1c1c22; --muted: #6b6b76; }
+  @media (prefers-color-scheme: dark) {
+    :root { --accent: #8d80ff; --bg: #131318; --text: #ececf1; --muted: #9a9aa6; }
+  }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text); text-align: center; padding: 24px;
+  }
+  h1 { font-size: 1.6rem; margin: 0 0 10px; }
+  p { color: var(--muted); margin: 0 0 24px; }
+  .code { font-size: 4rem; font-weight: 700; color: var(--accent); margin: 0 0 8px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div>
+  <div class="code">404</div>
+  <h1>This site doesn't exist</h1>
+  <p>It may have expired — sites here are temporary unless made permanent.</p>
+  <a href="https://sites.nyxhub.net">Deploy a new site at sites.nyxhub.net</a>
+</div>
+</body>
+</html>

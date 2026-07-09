@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NyxHub Drop — mockup: admin site list</title>
+<link rel="stylesheet" href="mockup.css">
+</head>
+<body>
+<div class="mock-banner"></div>
+<header class="admin-header">
+  <div class="wordmark">NyxHub <span class="dim">Drop — Admin</span></div>
+  <div>
+    <span class="who">signed in as <strong>stevebennett</strong></span>
+    <button type="button">Log out</button>
+  </div>
+</header>
+<main class="wide">
+  <div class="toolbar">
+    <input class="search" type="search" placeholder="Search sites…" aria-label="Search sites">
+    <span class="count">123 sites</span>
+  </div>
+
+  <div class="table-wrap">
+    <table class="sites">
+      <thead>
+        <tr>
+          <th class="sortable">Site</th>
+          <th class="sortable">Created <span class="arrow">▼</span></th>
+          <th>Updated</th>
+          <th class="sortable">Expires</th>
+          <th>Size</th>
+          <th>Files</th>
+          <th>Source</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a class="slug" href="#" target="_blank">brave-bison-7fq2xk</a></td>
+          <td><span class="rel" title="2026-07-09T10:12:44Z">2 h ago</span></td>
+          <td><span class="rel" title="2026-07-09T10:12:44Z">2 h ago</span></td>
+          <td><span class="rel" title="2026-07-10T10:12:44Z">in 22 h</span></td>
+          <td class="num">3.4 MB</td>
+          <td class="num">28</td>
+          <td>web</td>
+          <td class="actions">
+            <button type="button" class="btn-sm">Make permanent</button>
+            <a class="btn btn-sm" href="#">Download</a>
+            <button type="button" class="btn-sm btn-danger">Delete</button>
+          </td>
+        </tr>
+        <tr>
+          <td><a class="slug" href="#" target="_blank">proud-panda-9k2df3</a></td>
+          <td><span class="rel" title="2026-06-27T08:00:12Z">12 d ago</span></td>
+          <td><span class="rel" title="2026-07-09T07:31:02Z">5 h ago</span></td>
+          <td><span class="badge permanent">permanent</span></td>
+          <td class="num">12.1 MB</td>
+          <td class="num">214</td>
+          <td>api</td>
+          <td class="actions">
+            <button type="button" class="btn-sm btn-pinned">Permanent ✓</button>
+            <a class="btn btn-sm" href="#">Download</a>
+            <button type="button" class="btn-sm btn-danger">Delete</button>
+          </td>
+        </tr>
+        <tr class="dimmed">
+          <td><a class="slug" href="#" target="_blank">witty-wren-a1b2c3</a></td>
+          <td><span class="rel" title="2026-07-06T09:44:00Z">3 d ago</span></td>
+          <td><span class="rel" title="2026-07-06T09:44:00Z">3 d ago</span></td>
+          <td class="keep"><span class="badge expired">expired — pending removal</span></td>
+          <td class="num">640 KB</td>
+          <td class="num">7</td>
+          <td>api</td>
+          <td class="actions keep">
+            <button type="button" class="btn-sm">Make permanent</button>
+            <a class="btn btn-sm" href="#">Download</a>
+            <button type="button" class="btn-sm btn-danger">Delete</button>
+          </td>
+        </tr>
+        <tr>
+          <td><a class="slug" href="#" target="_blank">calm-cobra-x9y8z7</a></td>
+          <td><span class="rel" title="2026-07-08T16:20:31Z">20 h ago</span></td>
+          <td><span class="rel" title="2026-07-08T16:20:31Z">20 h ago</span></td>
+          <td><span class="rel" title="2026-07-09T16:20:31Z">in 4 h</span></td>
+          <td class="num">5.2 MB</td>
+          <td class="num">41</td>
+          <td>api</td>
+          <td class="actions">
+            <button type="button" class="btn-sm">Make permanent</button>
+            <a class="btn btn-sm" href="#">Download</a>
+            <button type="button" class="btn-sm btn-danger">Delete</button>
+          </td>
+        </tr>
+        <tr>
+          <td><a class="slug" href="#" target="_blank">trusty-tahr-x7k2mq</a></td>
+          <td><span class="rel" title="2026-07-08T12:00:00Z">1 d ago</span></td>
+          <td><span class="rel" title="2026-07-09T11:02:13Z">1 h ago</span></td>
+          <td><span class="rel" title="2026-07-10T11:02:13Z">in 23 h</span></td>
+          <td class="num">1.0 MB</td>
+          <td class="num">12</td>
+          <td>api</td>
+          <td class="actions">
+            <button type="button" class="btn-sm">Make permanent</button>
+            <a class="btn btn-sm" href="#">Download</a>
+            <button type="button" class="btn-sm btn-danger">Delete</button>
+          </td>
+        </tr>
+        <tr>
+          <td><a class="slug" href="#" target="_blank">quick-quokka-1a2b3c</a></td>
+          <td><span class="rel" title="2026-07-09T06:05:58Z">6 h ago</span></td>
+          <td><span class="rel" title="2026-07-09T06:05:58Z">6 h ago</span></td>
+          <td><span class="rel" title="2026-07-10T06:05:58Z">in 18 h</span></td>
+          <td class="num">890 KB</td>
+          <td class="num">9</td>
+          <td>web</td>
+          <td class="actions">
+            <button type="button" class="btn-sm">Make permanent</button>
+            <a class="btn btn-sm" href="#">Download</a>
+            <button type="button" class="btn-sm btn-danger">Delete</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pager">
+    <button type="button" disabled>← Prev</button>
+    <span>Page 1 of 3</span>
+    <button type="button">Next →</button>
+  </div>
+</main>
+<nav class="mock-nav">
+  <span>Admin states:</span>
+  <a class="current" href="admin-1-list.html">1 list</a>
+  <a href="admin-2-empty.html">2 empty search</a>
+  <a href="admin-3-error.html">3 error toast</a>
+  <a href="unauthorized.html">403 unauthorized</a>
+  <a href="notfound.html">site 404</a>
+  <span>·</span>
+  <a href="upload-1-dropzone.html">→ upload states</a>
+</nav>
+</body>
+</html>
