@@ -12,7 +12,8 @@ disagree, **the spec wins** — flag the discrepancy rather than silently choosi
 | [01-architecture.md](01-architecture.md) | Package layout, components, interfaces, concurrency, sessions, testing infrastructure | Before planning anything |
 | [02-database.md](02-database.md) | SQLite schema DDL, migrations, every query, driver settings | Before touching the store |
 | [03-api-reference.md](03-api-reference.md) | Every endpoint: exact requests, responses, headers, errors | Before writing any handler |
-| [04-frontend.md](04-frontend.md) | Upload page and admin UI: files, DOM behavior, JS patterns | Before writing any HTML/JS |
+| [04-frontend.md](04-frontend.md) | Upload page and admin UI: files, DOM behavior, JS patterns, design system | Before writing any HTML/JS |
+| [ui-mockups/](ui-mockups/) | High-fidelity static HTML mockups of every page and state (start at `index.html`) | Alongside 04-frontend.md |
 | [05-deployment.md](05-deployment.md) | Dockerfile, Helm chart, CI, local development | Before packaging |
 | [06-vertical-slices.md](06-vertical-slices.md) | Suggested build order as thin vertical slices with acceptance criteria | When writing the implementation plan |
 

@@ -3,7 +3,7 @@
 **Date:** 2026-07-09
 **Status:** Approved
 
-> **For implementers:** this spec defines *what* the system does. The *how* — architecture, package layout, database schema, full API reference, frontend behavior, deployment manifests, and a suggested vertical-slice build order — is documented in [`docs/implementation/`](../../implementation/00-overview.md). Read the overview there before writing an implementation plan. Where this spec and the implementation notes disagree, this spec wins.
+> **For implementers:** this spec defines *what* the system does. The *how* — architecture, package layout, database schema, full API reference, frontend behavior, high-fidelity UI mockups, deployment manifests, and a suggested vertical-slice build order — is documented in [`docs/implementation/`](../../implementation/00-overview.md). Read the overview there before writing an implementation plan. Where this spec and the implementation notes disagree, this spec wins.
 
 ## Purpose
 
