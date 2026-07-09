@@ -18,9 +18,9 @@ _last rendered: 2026-07-09 — 1 in flight / WIP 3 · 0 done / 11 cards_
 - CARD-011 — Helm chart & production hardening · backlog · [M5]
 
 ## Slice
-- CARD-001 — Walking skeleton: config, healthz/metrics, host routing, Dockerfile, CI · slice · [M1]
 
 ## Design
+- CARD-001 — Walking skeleton: config, healthz/metrics, host routing, Dockerfile, CI · design · task/001-walking-skeleton-design · [M1]
 
 ## Implement
 

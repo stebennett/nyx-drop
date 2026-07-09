@@ -3,12 +3,12 @@ id: CARD-001
 type: task
 layer: infra
 title: "Walking skeleton: config, healthz/metrics, host routing, Dockerfile, CI"
-status: slice
-phase: slice
-right_sized: ""
+status: design
+phase: design
+right_sized: true
 depends_on: []
-branch: ""
-worktree: ""
+branch: task/001-walking-skeleton-design
+worktree: /Users/stevebennett/Code/nyx-drop-worktrees/CARD-001
 design_pr_url: ""
 pr_url: ""
 adrs: []
