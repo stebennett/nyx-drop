@@ -3,6 +3,8 @@
 **Date:** 2026-07-09
 **Status:** Approved
 
+> **For implementers:** this spec defines *what* the system does. The *how* — architecture, package layout, database schema, full API reference, frontend behavior, deployment manifests, and a suggested vertical-slice build order — is documented in [`docs/implementation/`](../../implementation/00-overview.md). Read the overview there before writing an implementation plan. Where this spec and the implementation notes disagree, this spec wins.
+
 ## Purpose
 
 A self-hosted clone of Cloudflare Drop, deployable into a Kubernetes cluster. Users upload a set of static assets (HTML, CSS, JS, images, …) or a zip file, and the service publishes them as a temporary site on a random subdomain of a configured base domain (e.g. base domain `sites.nyxhub.net` → site at `trusty-tahr-x7k2mq.sites.nyxhub.net`). Sites expire after a configurable TTL unless an admin marks them permanent.
@@ -69,7 +71,7 @@ SQLite `sites` table:
 
 **Permanence semantics:** `permanent = true` means the reaper ignores `expires_at`. Unsetting permanence sets `expires_at = now + TTL`, so the site gets a full TTL from the moment of unsetting rather than vanishing instantly.
 
-**Atomic creation:** uploads are extracted into a temp directory under `/data/tmp` (same filesystem), validated, then renamed into `/data/sites/<id>` and the DB row inserted. A site is never servable in a half-written state. Stale temp directories are removed on startup. If the volume fills mid-extraction (`ENOSPC`), the temp directory is cleaned up and the upload fails with a structured `500`; no partial state remains. There is no global storage quota — the operator sizes the PVC appropriately.
+**Atomic creation:** uploads are extracted into a temp directory under `/data/tmp` (same filesystem) and validated; then the DB row is inserted (reserving the slug — the primary-key constraint is the collision detector) and the directory renamed into `/data/sites/<id>`. A site is never servable in a half-written state. The startup sweep is self-healing in both directions: it removes stale temp directories, site directories with no DB row, and DB rows with no site directory (crash artifacts either side of the rename). If the volume fills mid-extraction (`ENOSPC`), the temp directory is cleaned up and the upload fails with a structured `500`; no partial state remains. There is no global storage quota — the operator sizes the PVC appropriately.
 
 **Schema migrations:** embedded SQL migrations run at startup, versioned via SQLite's `PRAGMA user_version`. Each migration is applied in a transaction; the app refuses to start if the on-disk version is newer than the binary knows.
 
@@ -103,13 +105,15 @@ Success — `201 Created`:
 
 The URL scheme comes from the `SCHEME` config value (default `https`).
 
+Errors: `401` bad/missing token, `413` size limits exceeded, `400` invalid archive / no files / path traversal detected.
+
 ### Updating a site
 
 `PUT /api/sites/{id}`
 `Authorization: Bearer <UPLOAD_TOKEN>`
 Body: same `multipart/form-data` format as creation (zip or multiple files).
 
-Replaces the site's contents entirely while keeping its URL, and **resets the timer**: `expires_at = now + TTL`. A permanent site can be updated too — its contents are replaced and it stays permanent. All extraction rules and safety limits apply as for creation.
+Replaces the site's contents entirely while keeping its URL, and **resets the timer**: `expires_at = now + TTL` and `updated_at = now` on every successful `PUT`, regardless of permanence. A permanent site can be updated too — its contents are replaced and it stays permanent (the reset `expires_at` is simply ignored while `permanent` is set). All extraction rules and safety limits apply as for creation.
 
 The swap is atomic per directory rename: the new content is extracted and validated in `/data/tmp`, the old site directory is renamed aside, the new one renamed into place, and the old content deleted. In-flight requests may briefly 404 between the two renames; this is accepted. Response is `200` with the same JSON shape as creation. Errors: `404` unknown id, plus the same `401`/`400`/`413` as creation.
 
@@ -118,8 +122,6 @@ This enables stable URLs for CI use ("redeploy the preview for PR #42"): create 
 `PUT` to an **expired-but-not-yet-reaped** site returns `404` — expired means gone on all token-authenticated and public surfaces, regardless of whether the reaper has physically caught up.
 
 **Per-site concurrency:** mutating and snapshotting operations on the same site id (`PUT`, admin delete, download snapshot, reap) are serialized by a per-site lock. Concurrent `PUT`s are last-write-wins in arrival order; a download snapshot never observes a half-swapped site. Operations on different sites do not block each other.
-
-Errors: `401` bad/missing token, `413` size limits exceeded, `400` invalid archive / no files / path traversal detected.
 
 ### Upload page
 
@@ -153,7 +155,7 @@ Every site receives the single global TTL; there is no per-site TTL override.
 
 GitHub OAuth (authorization code flow). `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` from config; callback URL `<SCHEME>://<BASE_DOMAIN>/auth/callback`. The authorization request carries a random `state` parameter, stored in a short-lived cookie (10-minute expiry, `__Host-` prefixed, cleared on callback) and verified on callback (login-CSRF protection). After the OAuth exchange, the authenticated GitHub login must equal `ADMIN_GITHUB_USER` **compared case-insensitively** (GitHub logins are case-insensitive); any other user receives `403`.
 
-On success a signed session cookie is issued: name `__Host-session` (HMAC with `SESSION_SECRET`, `HttpOnly`, `Secure`, `Path=/`, no `Domain` attribute, `SameSite=Lax`, 7-day expiry). The `__Host-` prefix makes the cookie host-only and unsettable from subdomains — uploaded sites run arbitrary JS on `*.<BASE_DOMAIN>` and must not be able to shadow or fixate the admin session via `Domain=.<BASE_DOMAIN>` cookies (cookie tossing).
+On success a signed session cookie is issued: name `__Host-session` (HMAC with `SESSION_SECRET`, `HttpOnly`, `Secure`, `Path=/`, no `Domain` attribute, `SameSite=Lax`, 7-day expiry). When `SCHEME=http` (local development only) the cookie downgrades to name `session` without `Secure` — browsers refuse `Secure`/`__Host-` cookies on non-localhost HTTP origins, and admin login would otherwise silently fail in dev. The `__Host-` prefix makes the cookie host-only and unsettable from subdomains — uploaded sites run arbitrary JS on `*.<BASE_DOMAIN>` and must not be able to shadow or fixate the admin session via `Domain=.<BASE_DOMAIN>` cookies (cookie tossing).
 
 **CSRF protection:** all state-changing admin endpoints (`POST`/`DELETE`) additionally verify that the request's `Origin` (or `Referer`) header, when present, matches `<SCHEME>://<BASE_DOMAIN>`, on top of `SameSite=Lax`. All admin endpoints require a valid session.
 
@@ -196,7 +198,7 @@ A background goroutine runs at startup and then every minute:
 1. Query sites where `permanent = false AND expires_at <= now`.
 2. For each: take the per-site lock, re-check the `permanent` flag (an admin may have rescued the site since the query), then delete the DB row and remove the site directory.
 
-Deleting the row first guarantees an expired site stops being served immediately; a startup sweep removes any orphaned directories (no matching row), covering a crash between the two steps. Because metadata (including the permanent flag) lives in SQLite on the PVC, permanence survives pod and node restarts. Sites that expired while the pod was down are reaped by the startup run.
+Deleting the row first guarantees an expired site stops being served immediately; the startup sweep (see Atomic creation) removes orphaned directories and orphaned rows, covering a crash between any two steps. Because metadata (including the permanent flag) lives in SQLite on the PVC, permanence survives pod and node restarts. Sites that expired while the pod was down are reaped by the startup run.
 
 **TTL is not retroactive:** each site's `expires_at` is fixed at creation (or at permanence-unset). Redeploying with a changed `TTL` affects only future sites and future unsets; existing sites keep their stored expiry. This is intended behavior.
 
