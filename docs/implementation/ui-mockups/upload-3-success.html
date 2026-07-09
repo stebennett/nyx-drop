@@ -8,23 +8,24 @@
 </head>
 <body>
 <div class="mock-banner"></div>
-<header><div class="wordmark">NyxHub <span class="dim">Drop</span></div></header>
+<header><div class="wordmark"><svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>NyxHub <span class="dim">Drop</span></div></header>
 <main>
   <h1>Deploy a site</h1>
-  <p class="sub">Drop your static files here and get a temporary URL. Sites expire after 24 hours.</p>
+  <p class="sub">Drop a zip or a folder and get a URL. Sites fade after 24 hours unless made permanent.</p>
 
   <div class="card center">
     <div class="status-icon ok">✓</div>
     <h2 style="margin:0 0 4px">Your site is live</h2>
+    <p class="slugline">trusty-tahr<span class="suffix">-x7k2mq</span></p>
 
     <div class="url-box">
       <a href="https://trusty-tahr-x7k2mq.sites.nyxhub.net" target="_blank" rel="noopener">https://trusty-tahr-x7k2mq.sites.nyxhub.net</a>
       <button type="button" class="btn-primary" id="copy">Copy</button>
     </div>
 
-    <p class="expiry">Expires <strong>2026-07-10 12:00 UTC</strong> (in 24 hours)</p>
+    <p class="expiry"><svg class="moon" viewBox="0 0 20 20" aria-hidden="true"><circle class="disc" cx="10" cy="10" r="8"/><circle class="lit" cx="10" cy="10" r="8"/></svg> Fades in 24 hours — <strong>2026-07-10 12:00 UTC</strong></p>
 
-    <button type="button" class="btn-quiet">Upload another site</button>
+    <div><button type="button" class="btn-quiet">Deploy another site</button></div>
   </div>
 </main>
 <nav class="mock-nav">

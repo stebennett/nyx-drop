@@ -101,9 +101,35 @@ Served with status 404 for unknown/expired site hosts and unknown hosts. Keep it
 self-contained (inline CSS is fine) since it's served on hosts where `/static/` does
 not exist.
 
-## Design/style guidance
+## Design system ("dusk")
 
-One shared `app.css`: system font stack, single accent color, max-width ~720px column
-for the upload page, full-width table for admin. Light and dark via
-`prefers-color-scheme`. No icons/emoji-as-UI; text labels. This is an internal tool —
-clean and boring beats clever.
+The identity: Nyx is night, and sites are ephemeral — they rise on animal-named
+subdomains and fade. `mockup.css` in `ui-mockups/` implements all of this; copy it as
+the basis of `web/static/app.css` rather than re-deriving.
+
+- **Palette:** dusk indigo, dark-first. Night: bg `#0c111f`, surface `#151c30`, border
+  `#2a3350`, text `#e9ecf6`. Accent is **moon gold** `#e9c763` (identity/signature
+  elements, primary buttons, focus rings) with periwinkle `#9db0f2` for links. The light
+  theme is "dawn" (pale blue-grey `#eef1f8`, gold darkened to `#b8912c` for contrast).
+  Both themes via `prefers-color-scheme`.
+- **Type:** three roles. Display = `ui-serif, Georgia` (headings, wordmark); UI =
+  `system-ui`; data = `ui-monospace` for slugs, URLs, filenames, and tabular numbers.
+  Slugs are celebrated: the success screen shows the animal pair large in mono
+  (`.slugline`, suffix muted).
+- **Signature — the lifetime moon:** remaining TTL rendered as a waning moon (SVG,
+  16px): full when fresh, waning as expiry nears, dark outline when expired; permanent
+  sites show a four-point star instead. Shown next to every expiry ("in 22 h") in the
+  admin table and on the upload success line. Geometry for fraction-remaining `f` in a
+  20×20 viewBox (r=8, center 10,10): `f=1` → full lit circle; `f=0` → outline only;
+  otherwise path `M10 2 A8 8 0 0 1 10 18 A{rx} 8 0 0 {sweep} 10 2` with
+  `sweep=1, rx=(2f−1)·8` when `f≥0.5` and `sweep=0, rx=(1−2f)·8` when `f<0.5`.
+  Lit fill = moon gold; outline = border color. Always paired with the text form —
+  the moon is never the only carrier of the information.
+- **Atmosphere, with restraint:** a static CSS starfield (layered `radial-gradient`
+  dots) inside the drop zone only — faint at dawn, bright at night; drag-over glows
+  gold. No ambient animation; if any motion is added later it sits behind
+  `prefers-reduced-motion: no-preference`.
+- **Quality floor:** visible `:focus-visible` rings (gold), 720px column for the
+  upload page / 1140px for admin, table scrolls horizontally on small screens,
+  `notfound.html` reproduces the palette + crescent inline (it can't reference
+  `/static/`).

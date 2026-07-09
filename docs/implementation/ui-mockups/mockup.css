@@ -1,30 +1,45 @@
-/* NyxHub Drop — UI mockup stylesheet.
-   Mirrors the intended web/static/app.css: system fonts, one accent, light/dark. */
+/* NyxHub Drop — UI design system ("dusk").
+   Mirrors the intended web/static/app.css.
+
+   Identity: Nyx is night. Sites are ephemeral — they rise on animal-named
+   subdomains and fade after 24 hours. The palette is dusk indigo with a
+   moon-gold accent; headings are serif; slugs and URLs are monospace and
+   celebrated. The signature component is the "lifetime moon": remaining TTL
+   drawn as a waning moon phase (permanent sites are a fixed star). */
 
 :root {
-  --accent: #6d5ef2;
-  --accent-contrast: #ffffff;
-  --bg: #f7f7f9;
-  --surface: #ffffff;
-  --text: #1c1c22;
-  --text-muted: #6b6b76;
-  --border: #dcdce3;
-  --danger: #c2334d;
-  --ok: #1e8e5a;
+  /* dawn (light) */
+  --bg: #eef1f8;
+  --surface: #fbfcfe;
+  --text: #1a2138;
+  --muted: #5a6382;
+  --border: #d4daea;
+  --moon: #b8912c;          /* moon gold, darkened for light-mode contrast */
+  --moon-ink: #241c05;      /* text on gold */
+  --link: #3d56b2;
+  --danger: #b93a52;
+  --ok: #2e8b5f;
   --radius: 12px;
+  --font-display: ui-serif, Georgia, "Times New Roman", serif;
+  --font-ui: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --star-opacity: 0.35;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #131318;
-    --surface: #1c1c24;
-    --text: #ececf1;
-    --text-muted: #9a9aa6;
-    --border: #33333e;
-    --accent: #8d80ff;
-    --accent-contrast: #16123a;
-    --danger: #ff7a90;
-    --ok: #4cc98a;
+    /* night (the designed-first mode) */
+    --bg: #0c111f;
+    --surface: #151c30;
+    --text: #e9ecf6;
+    --muted: #98a1bd;
+    --border: #2a3350;
+    --moon: #e9c763;
+    --moon-ink: #241c05;
+    --link: #9db0f2;
+    --danger: #f28093;
+    --ok: #5bc78e;
+    --star-opacity: 0.9;
   }
 }
 
@@ -32,7 +47,7 @@
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-ui);
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
@@ -40,16 +55,24 @@ body {
   flex-direction: column;
 }
 
-header {
-  padding: 20px 24px;
-}
+a { color: var(--link); }
+
+:focus-visible { outline: 2px solid var(--moon); outline-offset: 2px; border-radius: 4px; }
+
+/* --- wordmark --- */
+header { padding: 20px 24px; }
 
 .wordmark {
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.05rem;
-  letter-spacing: 0.02em;
+  font-size: 1.15rem;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
-.wordmark .dim { color: var(--text-muted); font-weight: 500; }
+.wordmark .dim { color: var(--muted); font-weight: 400; font-style: italic; }
+.logo { width: 18px; height: 18px; fill: var(--moon); flex: none; }
 
 main {
   flex: 1;
@@ -59,11 +82,15 @@ main {
   padding: 24px;
 }
 
-h1 {
-  font-size: 1.5rem;
-  margin: 0 0 6px;
+/* --- type --- */
+h1, h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
-.sub { color: var(--text-muted); margin: 0 0 28px; }
+h1 { font-size: 1.9rem; margin: 0 0 8px; }
+h2 { font-size: 1.25rem; }
+.sub { color: var(--muted); margin: 0 0 28px; font-size: 1rem; }
 
 .card {
   background: var(--surface);
@@ -72,26 +99,10 @@ h1 {
   padding: 28px;
 }
 
-/* --- drop zone --- */
-.dropzone {
-  border: 2px dashed var(--border);
-  border-radius: var(--radius);
-  padding: 64px 24px;
-  text-align: center;
-  color: var(--text-muted);
-  transition: border-color 0.15s, background 0.15s;
-}
-.dropzone.dragover {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
-}
-.dropzone .big { font-size: 1.15rem; color: var(--text); margin: 0 0 8px; }
-.dropzone p { margin: 6px 0; }
-
-.browse-row { margin-top: 18px; display: flex; gap: 10px; justify-content: center; }
-
+/* --- buttons --- */
 button, .btn {
   font: inherit;
+  font-family: var(--font-ui);
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--surface);
@@ -101,21 +112,69 @@ button, .btn {
   text-decoration: none;
   display: inline-block;
 }
-button:hover, .btn:hover { border-color: var(--accent); }
+button:hover, .btn:hover { border-color: var(--moon); }
 
 .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-contrast);
+  background: var(--moon);
+  border-color: var(--moon);
+  color: var(--moon-ink);
   font-weight: 600;
 }
-.btn-quiet { border: none; background: none; color: var(--text-muted); text-decoration: underline; padding: 8px 4px; }
+.btn-primary:hover { filter: brightness(1.06); }
+.btn-quiet { border: none; background: none; color: var(--muted); text-decoration: underline; padding: 8px 4px; }
+
+/* --- drop zone: a patch of night sky --- */
+.dropzone {
+  position: relative;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 64px 24px;
+  text-align: center;
+  color: var(--muted);
+  overflow: hidden;
+  transition: border-color 0.15s, background 0.15s;
+  background-image:
+    radial-gradient(1px 1px at 12% 22%, var(--moon) 50%, transparent 51%),
+    radial-gradient(1px 1px at 31% 68%, var(--text) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 48% 18%, var(--moon) 50%, transparent 51%),
+    radial-gradient(1px 1px at 63% 55%, var(--text) 50%, transparent 51%),
+    radial-gradient(1px 1px at 78% 28%, var(--moon) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 89% 71%, var(--text) 50%, transparent 51%),
+    radial-gradient(1px 1px at 22% 84%, var(--text) 50%, transparent 51%),
+    radial-gradient(1px 1px at 70% 87%, var(--moon) 50%, transparent 51%);
+  background-repeat: no-repeat;
+}
+/* stars sit behind the copy and stay faint in daylight */
+.dropzone { background-blend-mode: normal; }
+.dropzone > * { position: relative; }
+.dropzone::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--surface);
+  opacity: calc(1 - var(--star-opacity));
+  pointer-events: none;
+}
+.dropzone.dragover {
+  border-color: var(--moon);
+  background-color: color-mix(in srgb, var(--moon) 8%, transparent);
+  box-shadow: inset 0 0 40px color-mix(in srgb, var(--moon) 12%, transparent);
+}
+.dropzone .big {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  color: var(--text);
+  margin: 0 0 8px;
+}
+.dropzone p { margin: 6px 0; }
+
+.browse-row { margin-top: 18px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
 /* --- token footer --- */
 .token-row {
   margin-top: 16px;
   font-size: 0.85rem;
-  color: var(--text-muted);
+  color: var(--muted);
   display: flex;
   gap: 8px;
   align-items: center;
@@ -134,12 +193,12 @@ button:hover, .btn:hover { border-color: var(--accent); }
   background: var(--bg);
   color: var(--text);
 }
-.field input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
-.hint { font-size: 0.85rem; color: var(--text-muted); }
+.field input:focus { outline: 2px solid var(--moon); outline-offset: 0; border-color: transparent; }
+.hint { font-size: 0.85rem; color: var(--muted); }
 
 /* --- progress --- */
-.filemeta { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 0.9rem; margin-bottom: 10px; }
-.filemeta .name { color: var(--text); font-weight: 600; }
+.filemeta { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.9rem; margin-bottom: 10px; }
+.filemeta .name { color: var(--text); font-weight: 600; font-family: var(--font-mono); font-size: 0.85rem; }
 progress.bar {
   width: 100%;
   height: 10px;
@@ -151,12 +210,14 @@ progress.bar {
   background: var(--border);
 }
 progress.bar::-webkit-progress-bar { background: var(--border); }
-progress.bar::-webkit-progress-value { background: var(--accent); }
-progress.bar::-moz-progress-bar { background: var(--accent); }
+progress.bar::-webkit-progress-value {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--moon) 70%, var(--surface)), var(--moon));
+}
+progress.bar::-moz-progress-bar { background: var(--moon); }
 .pct-row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
-.pct { font-variant-numeric: tabular-nums; font-weight: 600; }
+.pct { font-variant-numeric: tabular-nums; font-weight: 600; font-family: var(--font-mono); }
 
-/* --- status headers --- */
+/* --- status icons --- */
 .status-icon {
   width: 44px; height: 44px;
   border-radius: 50%;
@@ -168,12 +229,22 @@ progress.bar::-moz-progress-bar { background: var(--accent); }
 .status-icon.err { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
 .center { text-align: center; }
 
-/* --- url result --- */
+/* --- success: the slug is the hero --- */
+.slugline {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 4px 0 14px;
+  overflow-wrap: anywhere;
+}
+.slugline .suffix { color: var(--muted); font-weight: 400; }
+
 .url-box {
   display: flex;
   gap: 10px;
   align-items: center;
-  margin: 18px 0 10px;
+  margin: 0 0 12px;
   padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -181,16 +252,23 @@ progress.bar::-moz-progress-bar { background: var(--accent); }
 }
 .url-box a {
   flex: 1;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 0.95rem;
-  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  color: var(--link);
   text-decoration: none;
   overflow-wrap: anywhere;
   text-align: left;
 }
 .url-box a:hover { text-decoration: underline; }
 
-.expiry { color: var(--text-muted); font-size: 0.9rem; margin: 0 0 20px; }
+.expiry {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0 0 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
 
 .error-msg {
   color: var(--danger);
@@ -202,24 +280,15 @@ progress.bar::-moz-progress-bar { background: var(--accent); }
   text-align: left;
 }
 
-/* --- mockup chrome (not part of the real app) --- */
-.mock-banner {
-  background: repeating-linear-gradient(-45deg, #f5c518, #f5c518 12px, #2b2b2b 12px, #2b2b2b 24px);
-  color: #fff;
-  font-size: 0;
-  height: 6px;
-}
-.mock-nav {
-  border-top: 1px solid var(--border);
-  padding: 14px 24px;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.mock-nav a { color: var(--text-muted); }
-.mock-nav a.current { color: var(--accent); font-weight: 700; text-decoration: none; }
+/* --- the lifetime moon (signature) ---
+   Remaining TTL as a waning moon: full when freshly deployed, dark when
+   expired. Permanent sites show a fixed star instead. */
+.moon { width: 16px; height: 16px; vertical-align: -3px; flex: none; }
+.moon .disc { fill: none; stroke: var(--border); stroke-width: 1.5; }
+.moon .lit { fill: var(--moon); }
+.moon.star .lit { fill: var(--moon); }
+.moon.dark .lit { fill: none; }
+
 /* --- admin: header bar --- */
 .admin-header {
   display: flex;
@@ -227,9 +296,11 @@ progress.bar::-moz-progress-bar { background: var(--accent); }
   justify-content: space-between;
   gap: 16px;
   padding: 20px 24px;
+  flex-wrap: wrap;
 }
-.admin-header .who { color: var(--text-muted); font-size: 0.9rem; margin-right: 10px; }
-main.wide { max-width: 1100px; }
+.admin-header .who { color: var(--muted); font-size: 0.9rem; margin-right: 10px; }
+main.wide { max-width: 1140px; }
+
 /* --- admin: toolbar --- */
 .toolbar {
   display: flex;
@@ -237,6 +308,7 @@ main.wide { max-width: 1100px; }
   align-items: center;
   justify-content: space-between;
   margin: 0 0 16px;
+  flex-wrap: wrap;
 }
 .search {
   font: inherit;
@@ -247,23 +319,37 @@ main.wide { max-width: 1100px; }
   color: var(--text);
   width: min(320px, 100%);
 }
-.search:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
-.count { color: var(--text-muted); font-size: 0.9rem; }
+.search:focus { outline: 2px solid var(--moon); outline-offset: 0; border-color: transparent; }
+.count { color: var(--muted); font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+
 /* --- admin: table --- */
 .table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
 table.sites { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
 .sites th, .sites td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 .sites tbody tr:last-child td { border-bottom: none; }
-.sites th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600; }
+.sites th {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-weight: 600;
+}
 .sites th.sortable { cursor: pointer; }
-.sites th.sortable:hover { color: var(--accent); }
-.sites th .arrow { font-size: 0.7rem; }
+.sites th.sortable:hover { color: var(--moon); }
+.sites th .arrow { font-size: 0.7rem; color: var(--moon); }
 .sites td.num { font-variant-numeric: tabular-nums; }
-.sites a.slug { color: var(--accent); text-decoration: none; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.88rem; }
+.sites a.slug {
+  color: var(--link);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+}
 .sites a.slug:hover { text-decoration: underline; }
 .sites tr.dimmed td { opacity: 0.55; }
 .sites tr.dimmed td.keep { opacity: 1; }
-.rel { border-bottom: 1px dotted var(--text-muted); cursor: help; }
+.rel { border-bottom: 1px dotted var(--muted); cursor: help; }
+.life { display: inline-flex; align-items: center; gap: 7px; }
+
 .badge {
   display: inline-block;
   font-size: 0.75rem;
@@ -272,16 +358,24 @@ table.sites { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
   border-radius: 999px;
   vertical-align: middle;
 }
-.badge.permanent { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+.badge.permanent { background: color-mix(in srgb, var(--moon) 16%, transparent); color: var(--moon); }
 .badge.expired { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+
 .actions { display: flex; gap: 6px; }
 .btn-sm { padding: 4px 10px; font-size: 0.82rem; border-radius: 6px; }
 .btn-danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
 .btn-danger:hover { border-color: var(--danger); }
-.btn-pinned { background: color-mix(in srgb, var(--accent) 12%, transparent); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.btn-pinned {
+  background: color-mix(in srgb, var(--moon) 14%, transparent);
+  border-color: var(--moon);
+  color: var(--moon);
+  font-weight: 600;
+}
+
 /* --- admin: pager --- */
-.pager { display: flex; align-items: center; gap: 14px; justify-content: flex-end; margin-top: 14px; color: var(--text-muted); font-size: 0.9rem; }
+.pager { display: flex; align-items: center; gap: 14px; justify-content: flex-end; margin-top: 14px; color: var(--muted); font-size: 0.9rem; }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
+
 /* --- admin: toast --- */
 .toast {
   position: fixed;
@@ -294,12 +388,32 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   border-radius: 8px;
   padding: 12px 18px;
   font-size: 0.9rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  max-width: min(560px, calc(100vw - 48px));
 }
+
 /* --- empty state --- */
 .empty {
   text-align: center;
-  color: var(--text-muted);
+  color: var(--muted);
   padding: 56px 24px;
 }
-.empty .big { font-size: 1.05rem; color: var(--text); margin-bottom: 6px; }
+.empty .big { font-family: var(--font-display); font-size: 1.15rem; color: var(--text); margin-bottom: 6px; }
+
+/* --- mockup chrome (not part of the real app) --- */
+.mock-banner {
+  background: repeating-linear-gradient(-45deg, #e9c763, #e9c763 12px, #1a2138 12px, #1a2138 24px);
+  font-size: 0;
+  height: 6px;
+}
+.mock-nav {
+  border-top: 1px solid var(--border);
+  padding: 14px 24px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.mock-nav a { color: var(--muted); }
+.mock-nav a.current { color: var(--moon); font-weight: 700; text-decoration: none; }
