@@ -5,7 +5,7 @@
 
 ## Purpose
 
-A self-hosted clone of Cloudflare Drop, deployable into a Kubernetes cluster. Users upload a set of static assets (HTML, CSS, JS, images, …) or a zip file, and the service publishes them as a temporary site on a random subdomain of a configured base domain (e.g. base domain `sites.nyxhub.net` → site at `k3x9m2q7wf.sites.nyxhub.net`). Sites expire after a configurable TTL unless an admin marks them permanent.
+A self-hosted clone of Cloudflare Drop, deployable into a Kubernetes cluster. Users upload a set of static assets (HTML, CSS, JS, images, …) or a zip file, and the service publishes them as a temporary site on a random subdomain of a configured base domain (e.g. base domain `sites.nyxhub.net` → site at `trusty-tahr-x7k2mq.sites.nyxhub.net`). Sites expire after a configurable TTL unless an admin marks them permanent.
 
 ## Requirements summary
 
@@ -52,7 +52,16 @@ SQLite `sites` table:
 | `file_count` | INTEGER | |
 | `source` | TEXT | `api` or `web` |
 
-**Slugs** are random DNS-safe labels: lowercase alphanumeric, starting with a letter, 10 characters (e.g. `k3x9m2q7wf`), generated from a cryptographically secure source. On collision (unique constraint violation), regenerate and retry.
+**Slugs** are readable, Ubuntu-release-style names in the spirit of [bschiffthaler/mkname](https://github.com/bschiffthaler/mkname): a random **alliterative adjective + animal pair** (both words share the same first letter, like Ubuntu's "Trusty Tahr" or "Jaunty Jackalope") followed by a random uniqueness suffix. Format:
+
+```
+<adjective>-<animal>-<suffix>     e.g.  trusty-tahr-x7k2mq
+```
+
+- Adjective and animal come from embedded word lists (lowercase ASCII, DNS-safe); the animal is chosen first, then an adjective sharing its first letter.
+- The suffix is 6 characters of lowercase alphanumeric (`a-z0-9`), generated from a cryptographically secure source, and guarantees uniqueness — the word pair is for readability only.
+- The whole slug must remain a valid DNS label (≤ 63 chars; word lists are curated to keep well under this).
+- On collision (unique constraint violation on insert), regenerate the suffix and retry.
 
 **Permanence semantics:** `permanent = true` means the reaper ignores `expires_at`. Unsetting permanence sets `expires_at = now + TTL`, so the site gets a full TTL from the moment of unsetting rather than vanishing instantly.
 
@@ -73,8 +82,8 @@ Success — `201 Created`:
 
 ```json
 {
-  "id": "k3x9m2q7wf",
-  "url": "https://k3x9m2q7wf.sites.nyxhub.net",
+  "id": "trusty-tahr-x7k2mq",
+  "url": "https://trusty-tahr-x7k2mq.sites.nyxhub.net",
   "expires_at": "2026-07-10T12:00:00Z"
 }
 ```
@@ -173,7 +182,7 @@ The app fails fast at startup if any required variable is missing.
 
 ## Testing
 
-- **Unit:** slug generation (charset, collisions), zip extraction (happy path, traversal attempts, absolute paths, symlinks, size/count limits), store operations, reaper logic with an injected fake clock.
+- **Unit:** slug generation (alliteration invariant, DNS-label validity, suffix charset, collision retry), zip extraction (happy path, traversal attempts, absolute paths, symlinks, size/count limits), store operations, reaper logic with an injected fake clock.
 - **Integration:** `httptest`-based tests exercising the full flow — upload (zip and multi-file) → serve → expire → 404; host routing (apex vs slug vs unknown); auth failures (missing/wrong upload token, no session, wrong GitHub user).
 - **OAuth:** GitHub endpoints stubbed with a local test server (configurable OAuth base URL internally to allow this).
 
