@@ -1,7 +1,7 @@
 # Frontend Implementation Notes
 
 > **Visual reference:** static HTML mockups for every page and state live in
-> [`ui-mockups/`](ui-mockups/) — upload states 0–4 (start at `upload-1-dropzone.html`),
+> [`ui-mockups/`](ui-mockups/) — upload states 1–4 (start at `upload-1-dropzone.html`),
 > admin states (`admin-1-list.html`: list with permanent/expired rows, `admin-2-empty.html`,
 > `admin-3-error.html`), plus `unauthorized.html` and the self-contained `notfound.html`.
 > Use the footer nav to step through them. The real pages must match their layout, copy,
@@ -29,33 +29,36 @@ Progressive enhancement matters less than clarity — JS is required, that's fin
 
 ## Upload page (`upload.html` + `upload.js`)
 
-States (single page, sections shown/hidden):
+The page never asks for a credential. States (single page, sections shown/hidden):
 
-1. **Token entry** — shown when `localStorage.uploadToken` is unset. One password input
-   + save button. No validation call; the token is proven on first upload (a 401 clears
-   it and returns here with an error message).
-2. **Drop zone** — big target; also a `<input type="file" webkitdirectory multiple>`
+1. **Drop zone** — big target; also a `<input type="file" webkitdirectory multiple>`
    and a separate `<input type="file" accept=".zip">` for click-to-browse. Drag-over
    highlight via `dragenter`/`dragleave` counters.
-3. **Uploading** — progress bar + percentage + cancel button (`xhr.abort()`).
-4. **Success** — the site URL as a link, a copy button
-   (`navigator.clipboard.writeText`), the expiry time ("expires 2026-07-10 12:00 UTC"),
-   and an "upload another" reset link.
-5. **Error** — human message from the JSON `error` field (fallback: generic text),
+2. **Uploading** — progress bar + percentage + cancel button (`xhr.abort()`).
+3. **Success** — the slug as the hero line, the site URL as a link, a copy button
+   (`navigator.clipboard.writeText`), the expiry time with the lifetime moon, and a
+   "deploy another" reset link.
+4. **Error** — human message from the JSON `error` field (fallback: generic text),
    retry affordance.
 
-### Upload mechanics — must use `XMLHttpRequest`
+### Upload mechanics — grant first, then `XMLHttpRequest`
 
-`fetch` has no upload-progress events. This is the one place XHR is required:
+Each upload is a two-step: fetch a single-use grant, then POST with it. `fetch` has no
+upload-progress events, so the upload itself must use XHR:
 
 ```js
+const { grant } = await (await fetch("/api/upload-grant")).json();
 const xhr = new XMLHttpRequest();
 xhr.open("POST", "/api/sites");
-xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+xhr.setRequestHeader("Authorization", `Bearer ${grant}`);
 xhr.upload.onprogress = (e) => { if (e.lengthComputable) bar.value = e.loaded / e.total; };
 xhr.onload = () => xhr.status === 201 ? showSuccess(JSON.parse(xhr.response)) : showError(...);
 xhr.send(formData);
 ```
+
+On a `401` (grant expired mid-upload or consumed), fetch a fresh grant and retry the
+upload **once** before showing the error state. Grants are single-use, so "deploy
+another" simply runs the two-step again — nothing is cached in `localStorage`.
 
 ### Building the FormData
 

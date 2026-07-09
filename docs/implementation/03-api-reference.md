@@ -16,9 +16,25 @@ All timestamps: RFC 3339 UTC.
 
 ---
 
-## Public API (Bearer `UPLOAD_TOKEN`)
+## Public API
+
+### Upload grant — `GET /api/upload-grant`
+
+Unauthenticated. Mints a short-lived credential for browser uploads (see the spec's
+"Upload grants" section: 15-minute expiry, single-use, signed with `SESSION_SECRET`).
+
+**200:**
+```json
+{ "grant": "eyJ1c2UiOiJ1cGxvYWQi...·MEQCIF...", "expires_at": "2026-07-09T12:15:00Z" }
+```
 
 ### Create — `POST /api/sites`
+
+Auth: `Authorization: Bearer <credential>` where the credential is either the
+`UPLOAD_TOKEN` (recorded as `source: "api"`) or a valid unused upload grant
+(`source: "web"`). Resolution order: constant-time compare against `UPLOAD_TOKEN`
+first; otherwise validate as a grant (signature → expiry → not-yet-consumed, then mark
+consumed); otherwise 401.
 
 ```
 curl -X POST https://sites.nyxhub.net/api/sites \
@@ -47,13 +63,14 @@ fields → 400.
 | Status | When | Example message |
 |---|---|---|
 | 400 | not multipart; both/neither of `file`/`files`; invalid zip; malformed path (traversal, `..`, backslash, control char, non-UTF-8, duplicate); empty after filtering | `"upload contains no files"` |
-| 401 | missing/wrong token | `"invalid upload token"` |
+| 401 | missing/wrong token; invalid, expired, or already-used grant | `"invalid or expired upload credential"` |
 | 413 | body > `MAX_UPLOAD_SIZE`; uncompressed > `MAX_SITE_SIZE`; > `MAX_FILE_COUNT` files | `"site exceeds maximum uncompressed size"` |
 | 500 | slug retries exhausted; ENOSPC; other internal | `"internal error"` |
 
 ### Update — `PUT /api/sites/{id}`
 
-Same body rules and error set as create, plus:
+Auth: `UPLOAD_TOKEN` **only** — an upload grant on `PUT` is 401 (grants must not allow
+overwriting existing sites). Same body rules and error set as create, plus:
 
 | Status | When |
 |---|---|

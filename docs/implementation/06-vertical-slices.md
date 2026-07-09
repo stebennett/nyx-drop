@@ -68,15 +68,20 @@ orphan dirs removed; errors on one site don't stop others.
 permanence preserved; unknown id and expired-unreaped id → 404; parallel PUTs to one id
 serialize (race test with `-race`).
 
-### S7 — Upload web page
-**Story:** a person drags a zip or folder onto a page and gets their URL.
+### S7 — Upload web page (credential-free)
+**Story:** a person drags a zip or folder onto a page and gets their URL — no token,
+no sign-in.
 **Depends:** S3, S4.
-**Scope:** `web/upload.html`, `upload.js` per 04-frontend.md (token state, XHR
-progress, folder walking, success/error states), embedded static serving, `web` embed
-wiring, branded `notfound.html` replacing any placeholder 404.
-**Accept:** manual: drag zip → progress → URL shown and works; folder drag preserves
-paths; wrong token surfaces error and re-prompts. Automated: pages served at `/` and
-`/static/*`; smoke-test HTML contains the expected mount points.
+**Scope:** `GET /api/upload-grant` + `auth.GrantStore` (single-use, 15-min expiry) +
+`requireUploadAuth` on `POST /api/sites` (token → `source=api`, grant → `source=web`;
+grants rejected on `PUT`); `web/upload.html`, `upload.js` per 04-frontend.md
+(grant-then-XHR upload, progress, folder walking, success/error states, one automatic
+retry on 401), embedded static serving, `web` embed wiring, branded `notfound.html`
+replacing any placeholder 404.
+**Accept:** automated: grant issue → create succeeds with `source=web`; expired,
+reused, and tampered grants → 401; grant on `PUT` → 401; token path still works with
+`source=api`; pages served at `/` and `/static/*`. Manual: drag zip → progress → URL
+shown and works with no credential prompt anywhere; folder drag preserves paths.
 
 ### S8 — Admin sign-in (GitHub OAuth)
 **Story:** the admin (and only the admin) can sign in; everyone else is refused.

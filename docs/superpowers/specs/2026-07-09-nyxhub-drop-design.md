@@ -19,7 +19,7 @@ A self-hosted clone of Cloudflare Drop, deployable into a Kubernetes cluster. Us
 - Admin can delete a site immediately.
 - API to create sites programmatically by POST; response includes the site URL.
 - Existing sites can be updated in place (same URL); an update resets the TTL timer.
-- Uploads and the API are token-gated. Admin access is via GitHub OAuth restricted to a single configured GitHub user.
+- The API is token-gated. The web upload page requires no user-entered credential — the page transparently obtains a short-lived, single-use **upload grant** from the server. Admin access is via GitHub OAuth restricted to a single configured GitHub user.
 
 ## Architecture overview
 
@@ -54,7 +54,7 @@ SQLite `sites` table:
 | `permanent` | BOOLEAN | Default false |
 | `size_bytes` | INTEGER | Total extracted size |
 | `file_count` | INTEGER | |
-| `source` | TEXT | `api` or `web` |
+| `source` | TEXT | `api` (created with `UPLOAD_TOKEN`) or `web` (created with an upload grant) |
 
 **Slugs** are readable, Ubuntu-release-style names in the spirit of [bschiffthaler/mkname](https://github.com/bschiffthaler/mkname): a random **adjective + animal pair** followed by a random uniqueness suffix. Format:
 
@@ -84,10 +84,19 @@ SQLite `sites` table:
 - Site hosts (`<slug>.<BASE_DOMAIN>`) serve `GET`/`HEAD` only; other methods return `405`.
 - Timestamps in responses are RFC 3339 UTC.
 
+### Upload grants (web uploads without a token)
+
+The upload page never asks the user for a credential. Instead, its JS calls
+`GET /api/upload-grant` immediately before each upload and receives a **grant**: a signed token (same HMAC scheme as sessions, `SESSION_SECRET`-signed payload `{use: "upload", exp, jti}`) valid for **15 minutes** and **single-use** — the server records consumed `jti`s in memory until their expiry and rejects reuse. `POST /api/sites` accepts a grant in the same `Authorization: Bearer` header as the upload token; which credential was used determines the recorded `source` (`web` for grants, `api` for the token).
+
+**Honest framing:** the grant endpoint is unauthenticated (the page itself is public), so grants are *abuse friction and a rate-limiting hook*, not authentication — a determined client can script fetch-grant-then-upload. What they provide: no replay of captured requests, a bounded validity window, a natural place to add per-IP rate limits later, and reliable `web`/`api` source attribution. A pod restart forgets consumed `jti`s; the replay window is bounded by the 15-minute expiry, which is accepted.
+
+Grants are valid **only for `POST /api/sites`**. `PUT /api/sites/{id}` requires the real `UPLOAD_TOKEN` — otherwise anyone who learned a slug could overwrite an existing site.
+
 ### API
 
 `POST /api/sites`
-`Authorization: Bearer <UPLOAD_TOKEN>`
+`Authorization: Bearer <UPLOAD_TOKEN or upload grant>`
 Body: `multipart/form-data`, either:
 
 - a single field `file` containing a `.zip` archive, or
@@ -105,12 +114,12 @@ Success — `201 Created`:
 
 The URL scheme comes from the `SCHEME` config value (default `https`).
 
-Errors: `401` bad/missing token, `413` size limits exceeded, `400` invalid archive / no files / path traversal detected.
+Errors: `401` bad/missing/expired/already-used credential, `413` size limits exceeded, `400` invalid archive / no files / path traversal detected.
 
 ### Updating a site
 
 `PUT /api/sites/{id}`
-`Authorization: Bearer <UPLOAD_TOKEN>`
+`Authorization: Bearer <UPLOAD_TOKEN>` (grants are not accepted — see Upload grants)
 Body: same `multipart/form-data` format as creation (zip or multiple files).
 
 Replaces the site's contents entirely while keeping its URL, and **resets the timer**: `expires_at = now + TTL` and `updated_at = now` on every successful `PUT`, regardless of permanence. A permanent site can be updated too — its contents are replaced and it stays permanent (the reset `expires_at` is simply ignored while `permanent` is set). All extraction rules and safety limits apply as for creation.
@@ -125,7 +134,7 @@ This enables stable URLs for CI use ("redeploy the preview for PR #42"): create 
 
 ### Upload page
 
-Served at `<SCHEME>://<BASE_DOMAIN>/`. Drag-and-drop of a zip file or a folder of files. Prompts for the upload token (remembered in `localStorage`), calls `POST /api/sites`, displays the resulting site URL with a copy button.
+Served at `<SCHEME>://<BASE_DOMAIN>/`. Drag-and-drop of a zip file or a folder of files — no credential is ever requested. On upload the page fetches a fresh grant from `GET /api/upload-grant`, then calls `POST /api/sites` with it and displays the resulting site URL with a copy button. If the upload fails with `401` (grant expired mid-upload or consumed), the page automatically fetches a new grant and retries once before surfacing an error.
 
 Uploads show a **progress indicator** (percentage/bar driven by upload progress events) — with a 100MB body limit, silent uploads are not acceptable.
 
@@ -225,7 +234,7 @@ No SPA fallback rewriting in v1.
 | `BASE_DOMAIN` | yes | — | e.g. `sites.nyxhub.net` |
 | `SCHEME` | no | `https` | Scheme for generated URLs, OAuth callback, Origin checks (`http` for local dev) |
 | `TTL` | no | `24h` | Site lifetime (Go duration) |
-| `UPLOAD_TOKEN` | yes | — | Bearer token for uploads/API |
+| `UPLOAD_TOKEN` | yes | — | Bearer token for the API (CI creates and all `PUT` updates) |
 | `GITHUB_CLIENT_ID` | yes | — | OAuth app |
 | `GITHUB_CLIENT_SECRET` | yes | — | OAuth app |
 | `ADMIN_GITHUB_USER` | yes | — | Sole permitted admin login |
@@ -265,7 +274,7 @@ The app fails fast at startup if any required variable is missing **or any value
 ## Testing
 
 - **Unit:** slug generation (DNS-label validity, suffix charset, bounded collision retry), zip extraction (happy path, traversal attempts, absolute paths, symlinks, backslash/control-char/non-UTF-8 entry names, duplicate paths, empty-after-filtering rejection, size/count limits, sole-top-level-dir stripping, dotfile filtering), store operations incl. pagination/sorting/search (including `LIKE`-wildcard escaping), reaper logic with an injected fake clock (expiry boundary is `now >= expires_at`), migration runner, config validation (missing and invalid values).
-- **Integration:** `httptest`-based tests exercising the full flow — upload (zip and multi-file) → serve → expire → 404; update via `PUT` (contents replaced, timer reset, permanence preserved, unknown id → 404, expired-but-unreaped id → 404); concurrency (parallel `PUT`s to one site, download-during-update, permanent-rescue of an expired-unreaped site); host routing (apex vs slug vs unknown vs multi-label, uppercase Host, Host with port, `/healthz` and `/metrics` on any host); method handling (`405` on wrong methods, site hosts GET/HEAD-only); auth failures (missing/wrong upload token, no session → 302 for pages vs 401 JSON for API, wrong GitHub user, case-differing GitHub user succeeding); sign-in redirect and logout flows; CSRF (cross-origin `Origin` header rejected); admin list pagination/sort/search and query validation (`400` on bad params); download-vs-reap race behavior.
+- **Integration:** `httptest`-based tests exercising the full flow — upload (zip and multi-file) → serve → expire → 404; update via `PUT` (contents replaced, timer reset, permanence preserved, unknown id → 404, expired-but-unreaped id → 404); concurrency (parallel `PUT`s to one site, download-during-update, permanent-rescue of an expired-unreaped site); host routing (apex vs slug vs unknown vs multi-label, uppercase Host, Host with port, `/healthz` and `/metrics` on any host); method handling (`405` on wrong methods, site hosts GET/HEAD-only); auth failures (missing/wrong upload token, no session → 302 for pages vs 401 JSON for API, wrong GitHub user, case-differing GitHub user succeeding); upload grants (issue → create succeeds with `source=web`; expired grant → 401; reused grant → 401; tampered grant → 401; grant on `PUT` → 401); sign-in redirect and logout flows; CSRF (cross-origin `Origin` header rejected); admin list pagination/sort/search and query validation (`400` on bad params); download-vs-reap race behavior.
 - **OAuth:** GitHub endpoints stubbed with a local test server (configurable OAuth base URL internally to allow this).
 - **Chart:** `helm lint` plus `helm template` golden-file tests (default values and a fully-customized values fixture) run in CI.
 
@@ -275,7 +284,7 @@ The app fails fast at startup if any required variable is missing **or any value
 - Horizontal scaling / multi-replica (single replica on RWO volume).
 - SPA fallback routing.
 - Custom domains per site.
-- Upload rate limiting (token-gated audience is trusted).
+- Upload rate limiting — web creates are open (grant-mediated), so this is a real gap accepted for v1; the grant endpoint is the designated hook for adding per-IP limits later.
 - Site labels/descriptions and uploader attribution — sites are anonymous; the shared upload token means `source` (`api`/`web`) is the only provenance recorded.
 - Uploader-initiated delete — only the admin can delete a site (or update via `PUT`, which is the uploader's remedy for mistakes).
 - Expiry notifications (email/webhook warnings before teardown).

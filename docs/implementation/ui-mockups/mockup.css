@@ -170,17 +170,6 @@ button:hover, .btn:hover { border-color: var(--moon); }
 
 .browse-row { margin-top: 18px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
-/* --- token footer --- */
-.token-row {
-  margin-top: 16px;
-  font-size: 0.85rem;
-  color: var(--muted);
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: center;
-}
-.token-row .dot { color: var(--ok); }
 
 /* --- forms --- */
 .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }

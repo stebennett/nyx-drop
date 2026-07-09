@@ -130,8 +130,9 @@ GET  /admin                  admin page (session-guarded, 302 → /auth/login)
 GET  /auth/login             oauth start
 GET  /auth/callback          oauth callback
 POST /auth/logout            logout (session + origin check)
-POST /api/sites              create (token)
-PUT  /api/sites/{id}         update (token)
+GET  /api/upload-grant       mint a single-use upload grant (open)
+POST /api/sites              create (token OR grant)
+PUT  /api/sites/{id}         update (token only)
 GET  /api/admin/sites        list (session)
 POST /api/admin/sites/{id}/permanent    (session + origin)
 DELETE /api/admin/sites/{id}/permanent  (session + origin)
@@ -148,7 +149,11 @@ ServeMux returns 405 with correct `Allow` headers for known paths automatically.
 Order for apex routes: `requestLog` → `metrics` → route-specific guards.
 
 - `requireToken`: constant-time compare (`crypto/subtle.ConstantTimeCompare`) of the
-  Bearer token against `cfg.UploadToken`; 401 JSON on failure.
+  Bearer token against `cfg.UploadToken`; 401 JSON on failure. Used on `PUT`.
+- `requireUploadAuth` (used on `POST /api/sites`): constant-time compare against
+  `cfg.UploadToken` first (→ source `api`); otherwise validate the value as an upload
+  grant — signature, expiry, then atomically consume the `jti` (→ source `web`);
+  otherwise 401. Puts the resolved source into the request context for the handler.
 - `requireSession`: validates `__Host-session`; API routes → 401 JSON, page routes →
   302 `/auth/login`.
 - `checkOrigin`: on state-changing admin/auth routes, if `Origin` (else `Referer`)
@@ -160,7 +165,7 @@ Order for apex routes: `requestLog` → `metrics` → route-specific guards.
 
 ### Create (`POST /api/sites`)
 
-1. `requireToken`, `maxBytes`.
+1. `requireUploadAuth` (token or grant; yields `source`), `maxBytes`.
 2. Parse multipart (`r.MultipartForm`); decide zip vs files mode (field `file` = zip,
    fields `files` = individual files; both present or neither → 400).
 3. `extract.FromZip/FromMultipart` → `Result` in `/data/tmp/<random>`.
@@ -220,6 +225,13 @@ token    = base64url(payloadJSON) + "." + base64url(HMAC-SHA256(payloadJSON, SES
 Validate: split, recompute HMAC, `hmac.Equal`, then check `exp` against the clock.
 Logout = `Set-Cookie` with `Max-Age=0`. The OAuth `state` cookie (`__Host-oauth-state`)
 uses the same signing scheme with a 10-minute `exp`.
+
+**Upload grants** reuse the same signing scheme with payload
+`{"use": "upload", "exp": <unix>, "jti": "<128-bit random hex>"}`. Single-use is
+enforced by `auth.GrantStore`: a mutex-guarded `map[jti]exp` — `Consume(jti, exp)`
+returns false if present, otherwise records it; expired entries are swept
+opportunistically on each call. In-memory only (restart forgets; bounded by the
+15-minute expiry — accepted in the spec). `GET /api/upload-grant` mints one per call.
 
 **Dev-mode cookie downgrade:** `__Host-` and `Secure` cookies are refused by browsers
 on non-localhost HTTP origins. When `SCHEME=http`, cookie names drop the `__Host-`
