@@ -1,4 +1,4 @@
-# NyxHub Drop — Design Specification
+# Nyx Drop — Design Specification
 
 **Date:** 2026-07-09
 **Status:** Approved

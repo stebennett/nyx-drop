@@ -20,7 +20,7 @@ ENTRYPOINT ["/drop"]
 Notes: `CGO_ENABLED=0` works because the SQLite driver is pure Go. Frontend assets are
 `embed.FS`, so nothing else is copied. `distroless/static:nonroot` runs as uid 65532.
 
-## Helm chart — `deploy/helm/nyxhub-drop/`
+## Helm chart — `deploy/helm/nyx-drop/`
 
 ```
 Chart.yaml
@@ -39,7 +39,7 @@ templates/
 
 ```yaml
 image:
-  repository: ghcr.io/OWNER/nyxhub-drop   # no default registry assumption; must be set
+  repository: ghcr.io/OWNER/nyx-drop   # no default registry assumption; must be set
   tag: ""                                  # defaults to .Chart.AppVersion
   pullPolicy: IfNotPresent
 
@@ -109,7 +109,7 @@ affinity: {}
 
 ### Chart tests
 
-- `helm lint deploy/helm/nyxhub-drop`
+- `helm lint deploy/helm/nyx-drop`
 - Golden-file tests: `helm template` with (a) minimal required values, (b) a
   fully-customized fixture; compare against checked-in expected output
   (`deploy/helm/testdata/`). A tiny Go test or shell script in CI is enough.

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-NyxHub Drop — a self-hosted Cloudflare Drop clone for Kubernetes. Upload static assets
+Nyx Drop — a self-hosted Cloudflare Drop clone for Kubernetes. Upload static assets
 (zip or files) → temporary site on a random animal-slug subdomain
 (`trusty-tahr-x7k2mq.sites.nyxhub.net`) that expires after a global TTL unless an admin
 marks it permanent. Single Go binary, SQLite + PVC storage, wildcard-ingress host
@@ -16,7 +16,7 @@ and implementation.
 
 ## Document map and authority order
 
-1. `docs/superpowers/specs/2026-07-09-nyxhub-drop-design.md` — **the spec**. Defines
+1. `docs/superpowers/specs/2026-07-09-nyx-drop-design.md` — **the spec**. Defines
    all behavior. Where anything (including the docs below) disagrees with it, the spec
    wins; flag the discrepancy rather than silently choosing.
 2. `docs/implementation/00-overview.md` — how-to-build index: fixed technology
@@ -56,4 +56,4 @@ and implementation.
 
 No build exists yet. Once code lands (slice S1 onward), the standard set is:
 `go test ./...`, `go test -run TestName ./internal/<pkg>`, `go vet ./...`,
-`gofmt -l .`, `docker build .`, `helm lint deploy/helm/nyxhub-drop`.
+`gofmt -l .`, `docker build .`, `helm lint deploy/helm/nyx-drop`.

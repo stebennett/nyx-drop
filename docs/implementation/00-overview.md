@@ -1,7 +1,7 @@
 # Implementation Notes — Overview
 
 These documents accompany the design spec at
-[`docs/superpowers/specs/2026-07-09-nyxhub-drop-design.md`](../superpowers/specs/2026-07-09-nyxhub-drop-design.md).
+[`docs/superpowers/specs/2026-07-09-nyx-drop-design.md`](../superpowers/specs/2026-07-09-nyx-drop-design.md).
 The spec says **what** the system does; these notes say **how** to build it. Where they
 disagree, **the spec wins** — flag the discrepancy rather than silently choosing.
 
@@ -22,7 +22,7 @@ disagree, **the spec wins** — flag the discrepancy rather than silently choosi
 | Decision | Value | Rationale |
 |---|---|---|
 | Language | Go, latest stable (≥ 1.23) | Single static binary, stdlib HTTP |
-| Go module name | `nyxhub-drop` | Not published; short local module path |
+| Go module name | `nyx-drop` | Not published; short local module path |
 | Router | stdlib `net/http.ServeMux` (Go 1.22+ method/wildcard patterns, e.g. `"POST /api/sites"`, `"PUT /api/sites/{id}"`) | Zero dependencies; sufficient |
 | SQLite driver | `modernc.org/sqlite` | Pure Go, no cgo, works in distroless/scratch |
 | Metrics | `github.com/prometheus/client_golang` | The standard |

@@ -3,7 +3,7 @@
 ## Repository layout
 
 ```
-nyxhub-drop/
+nyx-drop/
 ├── cmd/drop/main.go            # wiring only: config → deps → server → reaper → ListenAndServe
 ├── internal/
 │   ├── config/config.go        # env parsing + validation (fail fast)
@@ -29,7 +29,7 @@ nyxhub-drop/
 │   ├── reaper/reaper.go
 │   └── metrics/metrics.go      # all prometheus collectors, registered once
 ├── web/                        # embedded frontend (see 04-frontend.md)
-├── deploy/helm/nyxhub-drop/    # chart (see 05-deployment.md)
+├── deploy/helm/nyx-drop/    # chart (see 05-deployment.md)
 ├── Dockerfile
 └── README.md
 ```
