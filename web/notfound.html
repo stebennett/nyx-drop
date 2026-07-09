@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Site not found</title>
+<!-- Deliberately self-contained (inline CSS, no /static/ references): the real
+     notfound.html is served on site hosts where app assets do not exist. -->
+<style>
+  :root {
+    --bg: #eef1f8; --text: #1a2138; --muted: #5a6382; --moon: #b8912c; --link: #3d56b2;
+    --star-opacity: 0.3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c111f; --text: #e9ecf6; --muted: #98a1bd; --moon: #e9c763; --link: #9db0f2;
+      --star-opacity: 0.9;
+    }
+  }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text); text-align: center; padding: 24px;
+  }
+  .stars {
+    position: fixed; inset: 0; pointer-events: none; opacity: var(--star-opacity);
+    background-image:
+      radial-gradient(1px 1px at 12% 22%, var(--moon) 50%, transparent 51%),
+      radial-gradient(1px 1px at 31% 68%, var(--text) 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 48% 12%, var(--moon) 50%, transparent 51%),
+      radial-gradient(1px 1px at 63% 45%, var(--text) 50%, transparent 51%),
+      radial-gradient(1px 1px at 78% 24%, var(--moon) 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 89% 71%, var(--text) 50%, transparent 51%),
+      radial-gradient(1px 1px at 22% 88%, var(--text) 50%, transparent 51%),
+      radial-gradient(1px 1px at 70% 90%, var(--moon) 50%, transparent 51%);
+    background-repeat: no-repeat;
+  }
+  .crescent { width: 72px; height: 72px; fill: var(--moon); margin-bottom: 18px; }
+  h1 {
+    font-family: ui-serif, Georgia, "Times New Roman", serif;
+    font-size: 1.7rem; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 10px;
+  }
+  p { color: var(--muted); margin: 0 0 24px; max-width: 42ch; margin-left: auto; margin-right: auto; }
+  a { color: var(--link); }
+  main { position: relative; }
+</style>
+</head>
+<body>
+<div class="stars" aria-hidden="true"></div>
+<main>
+  <svg class="crescent" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+  <h1>This site has faded into the night</h1>
+  <p>Sites here are temporary — it may have expired, or it never existed. Permanent sites live on; this wasn't one of them.</p>
+  <a href="{{.AppURL}}">Deploy a new site at {{.AppURL}}</a>
+</main>
+</body>
+</html>
