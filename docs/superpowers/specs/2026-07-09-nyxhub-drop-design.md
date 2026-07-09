@@ -47,6 +47,7 @@ SQLite `sites` table:
 |---|---|---|
 | `id` | TEXT PK | The slug |
 | `created_at` | TIMESTAMP | |
+| `updated_at` | TIMESTAMP | Equal to `created_at` initially; set on every `PUT` |
 | `expires_at` | TIMESTAMP | `created_at + TTL` at creation |
 | `permanent` | BOOLEAN | Default false |
 | `size_bytes` | INTEGER | Total extracted size |
@@ -62,7 +63,9 @@ SQLite `sites` table:
 - Adjective and animal are chosen independently from embedded word lists (lowercase ASCII, DNS-safe). Alliteration is not required — when it happens it's a happy accident.
 - The suffix is 6 characters of lowercase alphanumeric (`a-z0-9`), generated from a cryptographically secure source, and guarantees uniqueness — the word pair is for readability only.
 - The whole slug must remain a valid DNS label (≤ 63 chars; word lists are curated to keep well under this).
-- On collision (unique constraint violation on insert), regenerate the suffix and retry.
+- On collision (unique constraint violation on insert), regenerate the suffix and retry, bounded at 5 attempts before failing the request with `500` (with ~2 billion suffixes, hitting this bound indicates a bug, not bad luck).
+
+**Time semantics:** all timestamps are stored and compared in UTC and serialized as RFC 3339 in API responses. A site is expired when `now >= expires_at`.
 
 **Permanence semantics:** `permanent = true` means the reaper ignores `expires_at`. Unsetting permanence sets `expires_at = now + TTL`, so the site gets a full TTL from the moment of unsetting rather than vanishing instantly.
 
@@ -71,6 +74,13 @@ SQLite `sites` table:
 **Schema migrations:** embedded SQL migrations run at startup, versioned via SQLite's `PRAGMA user_version`. Each migration is applied in a transaction; the app refuses to start if the on-disk version is newer than the binary knows.
 
 ## Site creation
+
+### API conventions
+
+- All API errors are JSON: `{"error": "<human-readable message>"}` with the appropriate status code.
+- Unsupported methods on known routes return `405`.
+- Site hosts (`<slug>.<BASE_DOMAIN>`) serve `GET`/`HEAD` only; other methods return `405`.
+- Timestamps in responses are RFC 3339 UTC.
 
 ### API
 
@@ -105,6 +115,10 @@ The swap is atomic per directory rename: the new content is extracted and valida
 
 This enables stable URLs for CI use ("redeploy the preview for PR #42"): create once, then `PUT` to the returned `id` on every push.
 
+`PUT` to an **expired-but-not-yet-reaped** site returns `404` — expired means gone on all token-authenticated and public surfaces, regardless of whether the reaper has physically caught up.
+
+**Per-site concurrency:** mutating and snapshotting operations on the same site id (`PUT`, admin delete, download snapshot, reap) are serialized by a per-site lock. Concurrent `PUT`s are last-write-wins in arrival order; a download snapshot never observes a half-swapped site. Operations on different sites do not block each other.
+
 Errors: `401` bad/missing token, `413` size limits exceeded, `400` invalid archive / no files / path traversal detected.
 
 ### Upload page
@@ -120,6 +134,8 @@ Folder handling: dropped folders are walked recursively via the `DataTransferIte
 - **Sole-top-level-directory stripping:** if, after extraction, the site root contains exactly one entry and it is a directory, its contents are promoted to the root (handles zips like `mysite/index.html` so the homepage serves at `/`). Applied once, not recursively; applies to both zip and multi-file uploads.
 - **Dotfiles are filtered out:** any file or directory whose name begins with `.` (`.git/`, `.env`, `.DS_Store`, …) is silently dropped during extraction and never stored or served.
 - A missing root `index.html` is accepted — the site simply 404s at `/` while other paths serve normally.
+- **Empty results are rejected:** an upload that yields zero files after dotfile filtering (including an empty zip, or a zip containing only dotfiles) fails with `400`. Empty directories are not preserved — only files count.
+- **Malformed paths are rejected (`400`):** duplicate paths within one upload, entry names containing backslashes (zip entries must use `/`), control characters, or a bare `.`/`..` component. Non-UTF-8 entry names are rejected.
 
 ### Upload safety
 
@@ -135,7 +151,7 @@ Every site receives the single global TTL; there is no per-site TTL override.
 
 ### Authentication
 
-GitHub OAuth (authorization code flow). `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` from config; callback URL `<SCHEME>://<BASE_DOMAIN>/auth/callback`. The authorization request carries a random `state` parameter, stored in a short-lived cookie and verified on callback (login-CSRF protection). After the OAuth exchange, the authenticated GitHub login must equal `ADMIN_GITHUB_USER` **compared case-insensitively** (GitHub logins are case-insensitive); any other user receives `403`.
+GitHub OAuth (authorization code flow). `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` from config; callback URL `<SCHEME>://<BASE_DOMAIN>/auth/callback`. The authorization request carries a random `state` parameter, stored in a short-lived cookie (10-minute expiry, `__Host-` prefixed, cleared on callback) and verified on callback (login-CSRF protection). After the OAuth exchange, the authenticated GitHub login must equal `ADMIN_GITHUB_USER` **compared case-insensitively** (GitHub logins are case-insensitive); any other user receives `403`.
 
 On success a signed session cookie is issued: name `__Host-session` (HMAC with `SESSION_SECRET`, `HttpOnly`, `Secure`, `Path=/`, no `Domain` attribute, `SameSite=Lax`, 7-day expiry). The `__Host-` prefix makes the cookie host-only and unsettable from subdomains — uploaded sites run arbitrary JS on `*.<BASE_DOMAIN>` and must not be able to shadow or fixate the admin session via `Domain=.<BASE_DOMAIN>` cookies (cookie tossing).
 
@@ -151,7 +167,7 @@ On success a signed session cookie is issued: name `__Host-session` (HMAC with `
 
 ### Admin UI
 
-Served at `<SCHEME>://<BASE_DOMAIN>/admin` (embedded static frontend compiled into the binary via `embed.FS`; plain HTML/JS, no build-time framework). Table of all sites: slug (linked to the live site), created, expires (or "permanent"), size, file count, source. Per-site actions: toggle permanent, download zip, delete (with confirm).
+Served at `<SCHEME>://<BASE_DOMAIN>/admin` (embedded static frontend compiled into the binary via `embed.FS`; plain HTML/JS, no build-time framework). Table of all sites: slug (linked to the live site), created, last updated, expires (or "permanent"), size, file count, source. Per-site actions: toggle permanent, download zip, delete (with confirm).
 
 ### Admin API
 
@@ -163,7 +179,13 @@ Served at `<SCHEME>://<BASE_DOMAIN>/admin` (embedded static frontend compiled in
 | `/api/admin/sites/{id}/download` | GET | Download a zip of the site's files (snapshot; see below) |
 | `/api/admin/sites/{id}` | DELETE | Delete site immediately (files + row) |
 
-**Listing:** `GET /api/admin/sites?page=1&per_page=50&sort=name|created|expires&order=asc|desc&q=<substring>`. Defaults: `page=1`, `per_page=50`, `sort=created`, `order=desc`. `q` filters by case-insensitive substring match on the slug. Permanent sites sort last under `sort=expires` (they have no effective expiry). Response includes `total` so the UI can render pager controls; the admin table exposes all three sortable columns and a **search box** wired to `q`.
+**Listing:** `GET /api/admin/sites?page=1&per_page=50&sort=name|created|expires&order=asc|desc&q=<substring>`. Defaults: `page=1`, `per_page=50`, `sort=created`, `order=desc`. `q` filters by case-insensitive substring match on the slug (matched literally — SQL `LIKE` wildcards in the input are escaped). Permanent sites sort last under `sort=expires` (they have no effective expiry). Response includes `total` so the UI can render pager controls; the admin table exposes all three sortable columns and a **search box** wired to `q`.
+
+**Query validation:** unknown `sort`/`order` values and non-positive `page`/`per_page` return `400`; `per_page` is capped at `200`.
+
+**Expired-but-not-yet-reaped sites** (expiry passed, reaper hasn't ticked) still appear in the admin list, flagged as expired. Admin actions on them remain valid until the row is gone — in particular, **making one permanent rescues it** from the pending reap (the reaper re-checks the flag under the per-site lock). If the reaper wins the race, the action returns `404`.
+
+**Auth failures:** admin *pages* redirect to `/auth/login` (302); admin *API* endpoints return `401` JSON, and the UI responds by redirecting to sign-in.
 
 **Download:** to avoid a race with the reaper deleting files mid-stream, the handler first snapshots the site into a zip file under `/data/tmp`, then streams that file (`Content-Disposition: attachment; filename=<id>.zip`) and deletes it afterwards. If the site is reaped between snapshot start and completion the request fails cleanly with `404`; the client never receives a silently truncated archive.
 
@@ -171,8 +193,8 @@ Served at `<SCHEME>://<BASE_DOMAIN>/admin` (embedded static frontend compiled in
 
 A background goroutine runs at startup and then every minute:
 
-1. Query sites where `permanent = false AND expires_at < now`.
-2. For each: delete the DB row, then remove the site directory.
+1. Query sites where `permanent = false AND expires_at <= now`.
+2. For each: take the per-site lock, re-check the `permanent` flag (an admin may have rescued the site since the query), then delete the DB row and remove the site directory.
 
 Deleting the row first guarantees an expired site stops being served immediately; a startup sweep removes any orphaned directories (no matching row), covering a crash between the two steps. Because metadata (including the permanent flag) lives in SQLite on the PVC, permanence survives pod and node restarts. Sites that expired while the pod was down are reaped by the startup run.
 
@@ -180,12 +202,15 @@ Deleting the row first guarantees an expired site stops being served immediately
 
 ## Static serving
 
+**Host normalization:** the `Host` header is lowercased and any port stripped before matching (DNS is case-insensitive; dev setups use ports). Exactly one label below `BASE_DOMAIN` is a site host — `a.b.<BASE_DOMAIN>` gets the 404 page.
+
 For requests to `<slug>.<BASE_DOMAIN>`:
 
 1. Look up the slug in SQLite. Missing, or expired-but-not-yet-reaped → 404 page.
 2. Serve files rooted at `/data/sites/<slug>` with path-traversal-safe resolution.
 3. Directory paths serve their `index.html`; missing files → plain 404.
-4. Standard content types and ETag/conditional-request handling via Go's `http.ServeContent`/`http.ServeFile`.
+4. Standard content types and ETag/conditional-request handling (including `HEAD` and `Range`) via Go's `http.ServeContent`/`http.ServeFile`.
+5. All site responses carry `X-Content-Type-Options: nosniff` — the content is untrusted user uploads.
 
 No SPA fallback rewriting in v1.
 
@@ -210,14 +235,14 @@ No SPA fallback rewriting in v1.
 | `PORT` | no | `8080` | Listen port |
 | `LOG_LEVEL` | no | `info` | slog level: `debug`, `info`, `warn`, `error` |
 
-The app fails fast at startup if any required variable is missing.
+The app fails fast at startup if any required variable is missing **or any value is invalid** (unparseable `TTL` or size values, `SCHEME` not `http`/`https`, `BASE_DOMAIN` containing a scheme, port, or path), logging exactly which variable is wrong.
 
 ## Deployment
 
 - **Image:** multi-stage Dockerfile; final stage distroless (`gcr.io/distroless/static`), single static binary with embedded frontend assets. Runs as non-root.
 - **Upgrade downtime is accepted:** single replica on an RWO volume with `Recreate` strategy means image upgrades take all sites (including permanent ones) briefly offline. This is an explicit trade-off for the zero-dependency storage model.
 - **Helm chart** with:
-  - Deployment — 1 replica, `strategy: Recreate` (RWO volume), liveness/readiness probes on `GET /healthz`, resource requests/limits via values.
+  - Deployment — 1 replica, `strategy: Recreate` (RWO volume), liveness/readiness probes on `GET /healthz`, resource requests/limits via values. `/healthz` returns `200` when the SQLite database answers a ping and the data directory is writable; `503` otherwise.
   - Service (ClusterIP).
   - PVC — size and storageClass via values.
   - Ingress — hosts `<BASE_DOMAIN>` and `*.<BASE_DOMAIN>`, ingress class, TLS secret name, and extra annotations all via values.
@@ -226,7 +251,7 @@ The app fails fast at startup if any required variable is missing.
 ## Observability
 
 - **Structured logging:** JSON logs via Go's `log/slog` — one line per request (host, path, status, duration, bytes) plus lifecycle events (site created, reaped, made permanent, deleted, admin login) with the site id as a field. Log level configurable via `LOG_LEVEL` (default `info`).
-- **Metrics:** Prometheus endpoint at `GET /metrics` (host-independent, like `/healthz`). Exposes standard Go/process metrics plus: `sites_active` and `sites_permanent` gauges, `sites_created_total`, `sites_reaped_total`, `sites_deleted_total` counters, `upload_bytes_total`, and HTTP request count/duration histograms labeled by route class (app, site, admin). The chart adds standard `prometheus.io/scrape` annotations (toggleable via values).
+- **Metrics:** Prometheus endpoint at `GET /metrics` (host-independent, like `/healthz`). Exposes standard Go/process metrics plus: `sites_active` and `sites_permanent` gauges, `sites_created_total`, `sites_updated_total`, `sites_reaped_total`, `sites_deleted_total`, `reap_errors_total` counters, `upload_bytes_total`, and HTTP request count/duration histograms labeled by route class (app, site, admin). The chart adds standard `prometheus.io/scrape` annotations (toggleable via values).
 
 ## Error handling
 
@@ -237,9 +262,10 @@ The app fails fast at startup if any required variable is missing.
 
 ## Testing
 
-- **Unit:** slug generation (DNS-label validity, suffix charset, collision retry), zip extraction (happy path, traversal attempts, absolute paths, symlinks, size/count limits, sole-top-level-dir stripping, dotfile filtering), store operations incl. pagination/sorting, reaper logic with an injected fake clock, migration runner.
-- **Integration:** `httptest`-based tests exercising the full flow — upload (zip and multi-file) → serve → expire → 404; update via `PUT` (contents replaced, timer reset, permanence preserved, unknown id → 404); host routing (apex vs slug vs unknown, `/healthz` and `/metrics` on any host); auth failures (missing/wrong upload token, no session, wrong GitHub user, case-differing GitHub user succeeding); sign-in redirect and logout flows; CSRF (cross-origin `Origin` header rejected); admin list pagination/sort/search; download-vs-reap race behavior.
+- **Unit:** slug generation (DNS-label validity, suffix charset, bounded collision retry), zip extraction (happy path, traversal attempts, absolute paths, symlinks, backslash/control-char/non-UTF-8 entry names, duplicate paths, empty-after-filtering rejection, size/count limits, sole-top-level-dir stripping, dotfile filtering), store operations incl. pagination/sorting/search (including `LIKE`-wildcard escaping), reaper logic with an injected fake clock (expiry boundary is `now >= expires_at`), migration runner, config validation (missing and invalid values).
+- **Integration:** `httptest`-based tests exercising the full flow — upload (zip and multi-file) → serve → expire → 404; update via `PUT` (contents replaced, timer reset, permanence preserved, unknown id → 404, expired-but-unreaped id → 404); concurrency (parallel `PUT`s to one site, download-during-update, permanent-rescue of an expired-unreaped site); host routing (apex vs slug vs unknown vs multi-label, uppercase Host, Host with port, `/healthz` and `/metrics` on any host); method handling (`405` on wrong methods, site hosts GET/HEAD-only); auth failures (missing/wrong upload token, no session → 302 for pages vs 401 JSON for API, wrong GitHub user, case-differing GitHub user succeeding); sign-in redirect and logout flows; CSRF (cross-origin `Origin` header rejected); admin list pagination/sort/search and query validation (`400` on bad params); download-vs-reap race behavior.
 - **OAuth:** GitHub endpoints stubbed with a local test server (configurable OAuth base URL internally to allow this).
+- **Chart:** `helm lint` plus `helm template` golden-file tests (default values and a fully-customized values fixture) run in CI.
 
 ## Out of scope (v1)
 
