@@ -1,5 +1,11 @@
 # Frontend Implementation Notes
 
+> **Visual reference:** static HTML mockups for every upload-page state live in
+> [`ui-mockups/`](ui-mockups/) (open `upload-1-dropzone.html` in a browser and use the
+> footer nav to step through states 0–4). The real page must match their layout, copy,
+> and styling; `mockup.css` is the starting point for `web/static/app.css`. The striped
+> top banner and the footer state-nav are mockup chrome — do not implement them.
+
 Everything lives in `web/`, embedded with `//go:embed web` and served by the app.
 **No framework, no bundler, no npm, no external requests** (fonts, CDNs — nothing;
 the pages must work in an airgapped cluster). Vanilla HTML + CSS + JS modules.

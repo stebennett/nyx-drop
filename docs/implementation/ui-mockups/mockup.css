@@ -1,0 +1,222 @@
+/* NyxHub Drop — UI mockup stylesheet.
+   Mirrors the intended web/static/app.css: system fonts, one accent, light/dark. */
+
+:root {
+  --accent: #6d5ef2;
+  --accent-contrast: #ffffff;
+  --bg: #f7f7f9;
+  --surface: #ffffff;
+  --text: #1c1c22;
+  --text-muted: #6b6b76;
+  --border: #dcdce3;
+  --danger: #c2334d;
+  --ok: #1e8e5a;
+  --radius: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131318;
+    --surface: #1c1c24;
+    --text: #ececf1;
+    --text-muted: #9a9aa6;
+    --border: #33333e;
+    --accent: #8d80ff;
+    --accent-contrast: #16123a;
+    --danger: #ff7a90;
+    --ok: #4cc98a;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  padding: 20px 24px;
+}
+
+.wordmark {
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+.wordmark .dim { color: var(--text-muted); font-weight: 500; }
+
+main {
+  flex: 1;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin: 0 0 6px;
+}
+.sub { color: var(--text-muted); margin: 0 0 28px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+}
+
+/* --- drop zone --- */
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 64px 24px;
+  text-align: center;
+  color: var(--text-muted);
+  transition: border-color 0.15s, background 0.15s;
+}
+.dropzone.dragover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.dropzone .big { font-size: 1.15rem; color: var(--text); margin: 0 0 8px; }
+.dropzone p { margin: 6px 0; }
+
+.browse-row { margin-top: 18px; display: flex; gap: 10px; justify-content: center; }
+
+button, .btn {
+  font: inherit;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 16px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+button:hover, .btn:hover { border-color: var(--accent); }
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+.btn-quiet { border: none; background: none; color: var(--text-muted); text-decoration: underline; padding: 8px 4px; }
+
+/* --- token footer --- */
+.token-row {
+  margin-top: 16px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+.token-row .dot { color: var(--ok); }
+
+/* --- forms --- */
+.field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.field label { font-weight: 600; font-size: 0.9rem; }
+.field input {
+  font: inherit;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+.field input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+.hint { font-size: 0.85rem; color: var(--text-muted); }
+
+/* --- progress --- */
+.filemeta { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 0.9rem; margin-bottom: 10px; }
+.filemeta .name { color: var(--text); font-weight: 600; }
+progress.bar {
+  width: 100%;
+  height: 10px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--border);
+}
+progress.bar::-webkit-progress-bar { background: var(--border); }
+progress.bar::-webkit-progress-value { background: var(--accent); }
+progress.bar::-moz-progress-bar { background: var(--accent); }
+.pct-row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+.pct { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* --- status headers --- */
+.status-icon {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem;
+  margin: 0 auto 14px;
+}
+.status-icon.ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+.status-icon.err { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
+.center { text-align: center; }
+
+/* --- url result --- */
+.url-box {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 18px 0 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.url-box a {
+  flex: 1;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.95rem;
+  color: var(--accent);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.url-box a:hover { text-decoration: underline; }
+
+.expiry { color: var(--text-muted); font-size: 0.9rem; margin: 0 0 20px; }
+
+.error-msg {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 0 0 20px;
+  text-align: left;
+}
+
+/* --- mockup chrome (not part of the real app) --- */
+.mock-banner {
+  background: repeating-linear-gradient(-45deg, #f5c518, #f5c518 12px, #2b2b2b 12px, #2b2b2b 24px);
+  color: #fff;
+  font-size: 0;
+  height: 6px;
+}
+.mock-nav {
+  border-top: 1px solid var(--border);
+  padding: 14px 24px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.mock-nav a { color: var(--text-muted); }
+.mock-nav a.current { color: var(--accent); font-weight: 700; text-decoration: none; }

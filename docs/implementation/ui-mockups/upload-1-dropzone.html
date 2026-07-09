@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NyxHub Drop — mockup: upload screen</title>
+<link rel="stylesheet" href="mockup.css">
+</head>
+<body>
+<div class="mock-banner"></div>
+<header><div class="wordmark">NyxHub <span class="dim">Drop</span></div></header>
+<main>
+  <h1>Deploy a site</h1>
+  <p class="sub">Drop your static files here and get a temporary URL. Sites expire after 24 hours.</p>
+
+  <div class="card">
+    <div class="dropzone" id="dropzone">
+      <p class="big">Drag &amp; drop a zip or a folder</p>
+      <p>HTML, CSS, JS and assets — we'll host the lot.</p>
+      <div class="browse-row">
+        <button type="button">Choose zip…</button>
+        <button type="button">Choose folder…</button>
+      </div>
+    </div>
+    <div class="token-row">
+      <span class="dot">●</span> Upload token saved
+      <button type="button" class="btn-quiet">change</button>
+    </div>
+  </div>
+</main>
+<nav class="mock-nav">
+  <span>Mockup states:</span>
+  <a href="upload-0-token.html">0 token entry</a>
+  <a class="current" href="upload-1-dropzone.html">1 upload screen</a>
+  <a href="upload-2-progress.html">2 progress</a>
+  <a href="upload-3-success.html">3 success</a>
+  <a href="upload-4-error.html">4 error</a>
+</nav>
+<script>
+// Mockup-only: demonstrate the dragover affordance the real page must implement.
+const dz = document.getElementById("dropzone");
+dz.addEventListener("dragenter", (e) => { e.preventDefault(); dz.classList.add("dragover"); });
+dz.addEventListener("dragover", (e) => e.preventDefault());
+dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
+dz.addEventListener("drop", (e) => { e.preventDefault(); dz.classList.remove("dragover"); });
+</script>
+</body>
+</html>

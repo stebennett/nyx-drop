@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NyxHub Drop — mockup: success</title>
+<link rel="stylesheet" href="mockup.css">
+</head>
+<body>
+<div class="mock-banner"></div>
+<header><div class="wordmark">NyxHub <span class="dim">Drop</span></div></header>
+<main>
+  <h1>Deploy a site</h1>
+  <p class="sub">Drop your static files here and get a temporary URL. Sites expire after 24 hours.</p>
+
+  <div class="card center">
+    <div class="status-icon ok">✓</div>
+    <h2 style="margin:0 0 4px">Your site is live</h2>
+
+    <div class="url-box">
+      <a href="https://trusty-tahr-x7k2mq.sites.nyxhub.net" target="_blank" rel="noopener">https://trusty-tahr-x7k2mq.sites.nyxhub.net</a>
+      <button type="button" class="btn-primary" id="copy">Copy</button>
+    </div>
+
+    <p class="expiry">Expires <strong>2026-07-10 12:00 UTC</strong> (in 24 hours)</p>
+
+    <button type="button" class="btn-quiet">Upload another site</button>
+  </div>
+</main>
+<nav class="mock-nav">
+  <span>Mockup states:</span>
+  <a href="upload-0-token.html">0 token entry</a>
+  <a href="upload-1-dropzone.html">1 upload screen</a>
+  <a href="upload-2-progress.html">2 progress</a>
+  <a class="current" href="upload-3-success.html">3 success</a>
+  <a href="upload-4-error.html">4 error</a>
+</nav>
+<script>
+// Mockup-only: copy-button feedback the real page must implement.
+const btn = document.getElementById("copy");
+btn.addEventListener("click", () => {
+  navigator.clipboard?.writeText("https://trusty-tahr-x7k2mq.sites.nyxhub.net");
+  btn.textContent = "Copied ✓";
+  setTimeout(() => (btn.textContent = "Copy"), 1500);
+});
+</script>
+</body>
+</html>
