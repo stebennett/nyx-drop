@@ -11,7 +11,7 @@ branch: task/001-walking-skeleton-design
 worktree: /Users/stevebennett/Code/nyx-drop-worktrees/CARD-001
 design_pr_url: ""
 pr_url: ""
-adrs: []
+adrs: [ADR-0001, ADR-0002]
 reworks: 0
 started: 2026-07-09
 delivered: ""
