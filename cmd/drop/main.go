@@ -22,6 +22,28 @@ import (
 	"nyx-drop/internal/server"
 )
 
+// idleTimeout bounds how long a keep-alive connection may sit idle
+// between requests before the server closes it. Without this, idle
+// connections are never reaped (IdleTimeout falls back to ReadTimeout,
+// not ReadHeaderTimeout, and both were previously zero/unlimited) — a
+// connection-hold resource-exhaustion vector. WriteTimeout is
+// deliberately left unset: CARD-003/004 add real site/upload responses
+// bounded by MAX_SITE_SIZE/MAX_UPLOAD_SIZE, and a fixed WriteTimeout set
+// now could truncate those later without knowing their size/bandwidth
+// envelope.
+const idleTimeout = 120 * time.Second
+
+// newHTTPServer builds the http.Server with its timeout policy, split
+// out so the policy is unit-testable without binding a real listener.
+func newHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       idleTimeout,
+	}
+}
+
 func main() {
 	if err := run(os.Getenv); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -61,11 +83,7 @@ func run(getenv func(string) string) error {
 		return fmt.Errorf("server: %w", err)
 	}
 
-	httpServer := &http.Server{
-		Addr:              cfg.Addr(),
-		Handler:           handler,
-		ReadHeaderTimeout: 10 * time.Second,
-	}
+	httpServer := newHTTPServer(cfg.Addr(), handler)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
