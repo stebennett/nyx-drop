@@ -9,9 +9,9 @@ right_sized: true
 depends_on: [CARD-001]
 branch: feature/008-admin-oauth-design
 worktree: /Users/stevebennett/Code/nyx-drop-worktrees/CARD-008
-design_pr_url: ""
+design_pr_url: https://github.com/stebennett/nyx-drop/pull/11
 pr_url: ""
-adrs: []
+adrs: [ADR-0005, ADR-0006]
 reworks: 0
 started: 2026-07-10
 delivered: ""

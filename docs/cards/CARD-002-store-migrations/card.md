@@ -9,9 +9,9 @@ right_sized: true
 depends_on: [CARD-001]
 branch: task/002-store-migrations-design
 worktree: /Users/stevebennett/Code/nyx-drop-worktrees/CARD-002
-design_pr_url: ""
+design_pr_url: https://github.com/stebennett/nyx-drop/pull/10
 pr_url: ""
-adrs: []
+adrs: [ADR-0003, ADR-0004]
 reworks: 0
 started: 2026-07-10
 delivered: ""
