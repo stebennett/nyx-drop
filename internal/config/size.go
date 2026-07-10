@@ -26,8 +26,9 @@ var sizeSuffixes = []struct {
 }
 
 // ParseSize parses a human-readable byte size such as "100MB" (decimal,
-// 1000^n), "1KiB" (binary, 1024^n), or a bare number of bytes ("1024").
-// Suffixes are case-insensitive. See ADR-0001.
+// 1000^n), "1KiB" (binary, 1024^n), the bare single-letter decimal aliases
+// "1K"/"1M"/"1G", or a bare number of bytes ("1024"). Suffixes are
+// case-insensitive. See ADR-0001.
 func ParseSize(s string) (int64, error) {
 	orig := s
 	trimmed := strings.TrimSpace(s)

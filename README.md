@@ -30,7 +30,7 @@ exits 1).
 | `ADMIN_GITHUB_USER` | yes | — | GitHub username allowed to sign in as admin (case-insensitive). |
 | `SESSION_SECRET` | yes | — | Secret used to sign admin session cookies. |
 | `DATA_DIR` | no | `/data` | Root directory for the SQLite DB and site files. |
-| `MAX_UPLOAD_SIZE` | no | `100MB` | Per-upload size cap. Accepts decimal (`KB`/`MB`/`GB`), binary (`KiB`/`MiB`/`GiB`), or bare-byte sizes. |
+| `MAX_UPLOAD_SIZE` | no | `100MB` | Per-upload size cap. Accepts decimal (`KB`/`MB`/`GB`), binary (`KiB`/`MiB`/`GiB`), bare single-letter decimal aliases (`K`/`M`/`G`), or bare-byte sizes. |
 | `MAX_SITE_SIZE` | no | `500MB` | Per-site total size cap, same size syntax as above. |
 | `MAX_FILE_COUNT` | no | `10000` | Max files per site, must be `> 0`. |
 | `PORT` | no | `8080` | Listen port, `1..65535`. |
