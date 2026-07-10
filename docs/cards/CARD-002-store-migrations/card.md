@@ -3,12 +3,12 @@ id: CARD-002
 type: task
 layer: db
 title: SQLite store & migrations
-status: slice
-phase: slice
-right_sized: ""
+status: design
+phase: design
+right_sized: true
 depends_on: [CARD-001]
-branch: ""
-worktree: ""
+branch: task/002-store-migrations-design
+worktree: /Users/stevebennett/Code/nyx-drop-worktrees/CARD-002
 design_pr_url: ""
 pr_url: ""
 adrs: []
