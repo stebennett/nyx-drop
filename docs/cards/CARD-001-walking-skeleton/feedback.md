@@ -58,3 +58,36 @@ findings were lost. Mitigation recorded in `KNOWLEDGE.md` under Gotchas.
 (`config.go:101`). Verified beforehand that review `4670334233` carried surviving comments at
 both lines, and that no replies were threaded under the deleted pair. PR now carries 8 inline
 comments, one per distinct finding.
+
+## 2026-07-10 · pr-review · PR #3 review `4670759127` (CHANGES_REQUESTED) — the driver's own comments, verbatim
+
+Review body was empty; the signal is the submitted review itself. Three inline comments, all
+authored by `stebennett`:
+
+> **`cmd/drop/main.go:35`** (`3558322371`)
+> Remove references to task list in comments.
+
+> **`internal/config/config.go:101`** (`3558359575`)
+> Remove the check.
+
+> **`internal/config/size.go:29`** (`3558367428`)
+> add k, m, g as supported in the comments.
+
+The driver additionally 👍'd four panel comments, which authorises them for the address loop:
+`3557945904` (`[security]` CI `permissions:`), `3557945929` (`[security]` `IdleTimeout`),
+`3557948844` (`[simplicity]` `requireString`), `3557957696` (`[tests]` overflow-guard coverage).
+They did **not** 👍 the remaining two panel comments (`[security]` action tag-pinning nit,
+`[readability]` — its two were superseded by their own comments), so those were left unactioned.
+
+**Signal reading:** a submitted review authorises its own inline comments and body as one atomic
+unit; the 👍s authorise those specific panel comments. Both applied. All seven items were fixed,
+each replied to once with `[kanban] Addressed in <commit-url>`. No thread was resolved, nothing
+approved — that belongs to the human.
+
+**One item was only partly actioned, and the reply says so:** `3557945929` asked about the
+server's timeouts. `IdleTimeout` was added; **`WriteTimeout` was deliberately left unset**,
+because CARD-003/004 will serve site content and accept uploads bounded by `MAX_SITE_SIZE` /
+`MAX_UPLOAD_SIZE`, and a write deadline chosen before those limits are wired in risks truncating
+legitimate large transfers. Flagged for revisit rather than guessed at.
+
+Human-directed fixes, so no rework credit was consumed (`reworks` stays 0).

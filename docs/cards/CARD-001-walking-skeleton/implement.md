@@ -93,3 +93,45 @@ was effectively a red→green cycle against a pre-existing failing test
 - `docker build .` — succeeds
 - `go test -fuzz=FuzzNormalizeHost -fuzztime=25s` — no new counterexamples;
   corpus now 4 files (3 original seeds + the `"[0:0]"` regression case)
+
+## PR review fixes (PR #3, review `4670759127` — CHANGES_REQUESTED)
+
+Seven items addressed in **PR-comment mode**: three comments the human authored, plus four
+panel comments they 👍'd. Human-directed fixes, so `reworks` remains **0**. One commit per
+comment.
+
+| # | Comment | Source | Commit |
+|---|---|---|---|
+| 1 | `cmd/drop/main.go:35` — remove task-list citation | human `3558322371` | `66f03fb` |
+| 2 | `internal/config/config.go:101` — remove the dead check | human `3558359575` | `15669ab` |
+| 3 | `internal/config/size.go:29` — document bare `K`/`M`/`G` | human `3558367428` | `1f9eef2` |
+| 4 | `.github/workflows/ci.yml:8` — least-privilege `permissions:` | 👍 `[security]` `3557945904` | `84df0f8` |
+| 5 | `cmd/drop/main.go:67` — add `IdleTimeout` | 👍 `[security]` `3557945929` | `9a0591a` |
+| 6 | `internal/config/config.go:70` — extract `requireString` | 👍 `[simplicity]` `3557948844` | `c059e2c` |
+| 7 | `internal/config/size_test.go:27` — cover the overflow guard | 👍 `[tests]` `3557957696` | `0b9c183` |
+
+Notes on the two that involved judgement:
+
+- **Item 3 also fixed `README.md`.** The human asked for the doc comment; the same suffix
+  omission existed in the `MAX_UPLOAD_SIZE` table row. One defect, two places — a README that
+  drifts from the validator is worse than none.
+- **Item 5 deliberately did not set `WriteTimeout`.** `IdleTimeout` (120s) was added and
+  `newHTTPServer(addr, handler)` extracted so `TestNewHTTPServer_SetsTimeouts` could assert it
+  (written red first). A fixed write deadline chosen now would risk truncating the large
+  uploads and site responses CARD-003/004 introduce, bounded by `MAX_UPLOAD_SIZE` /
+  `MAX_SITE_SIZE` — neither of which is wired into the server yet. Revisit when they land.
+
+Item 6 left `BASE_DOMAIN` and `ADMIN_GITHUB_USER` inline (they trim/lowercase first, so they
+don't fit `requireString`'s shape). `config_test.go` was **not touched**, so every error message
+still names its variable and `TestLoad_InvalidAndMissing` passes unmodified.
+
+### Gates after the fixes (verified independently by the orchestrator)
+- `go vet ./...` — clean
+- `gofmt -l .` — empty
+- `go test -race ./...` — **97 passed**, 0 failed, 6 packages (up from 95: one new test
+  function, one new table row)
+- `docker build .` — not re-run; no fix touched the Dockerfile
+- Coverage of the previously-dead branches, read from the raw profile rather than assumed:
+  the multiply-overflow guard (`size.go:63`) and the `numPart == ""` branch (`size.go:51`)
+  each now report `count=1`. `ParseSize` is at **100.0%**; `requireString` at 100.0%.
+- CI green on PR #3 at head `0b9c183`; `MERGEABLE` / `CLEAN`.
