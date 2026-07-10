@@ -67,21 +67,21 @@ func Load(getenv func(string) string) (*Config, error) {
 	}
 	cfg.TTL = ttl
 
-	uploadToken := getenv("UPLOAD_TOKEN")
-	if uploadToken == "" {
-		return nil, fmt.Errorf("UPLOAD_TOKEN is required")
+	uploadToken, err := requireString(getenv, "UPLOAD_TOKEN")
+	if err != nil {
+		return nil, err
 	}
 	cfg.UploadToken = uploadToken
 
-	clientID := getenv("GITHUB_CLIENT_ID")
-	if clientID == "" {
-		return nil, fmt.Errorf("GITHUB_CLIENT_ID is required")
+	clientID, err := requireString(getenv, "GITHUB_CLIENT_ID")
+	if err != nil {
+		return nil, err
 	}
 	cfg.GitHubClientID = clientID
 
-	clientSecret := getenv("GITHUB_CLIENT_SECRET")
-	if clientSecret == "" {
-		return nil, fmt.Errorf("GITHUB_CLIENT_SECRET is required")
+	clientSecret, err := requireString(getenv, "GITHUB_CLIENT_SECRET")
+	if err != nil {
+		return nil, err
 	}
 	cfg.GitHubClientSecret = clientSecret
 
@@ -91,9 +91,9 @@ func Load(getenv func(string) string) (*Config, error) {
 	}
 	cfg.AdminGitHubUser = adminUser
 
-	sessionSecret := getenv("SESSION_SECRET")
-	if sessionSecret == "" {
-		return nil, fmt.Errorf("SESSION_SECRET is required")
+	sessionSecret, err := requireString(getenv, "SESSION_SECRET")
+	if err != nil {
+		return nil, err
 	}
 	cfg.SessionSecret = sessionSecret
 
@@ -158,6 +158,19 @@ func (c *Config) Addr() string {
 // validate the Origin header (e.g. "https://sites.nyxhub.net").
 func (c *Config) ExternalOrigin() string {
 	return c.Scheme + "://" + c.BaseDomain
+}
+
+// requireString reads name from getenv and errors (naming the variable)
+// if it is empty. It covers the plain get/check-empty/error/assign shape
+// shared by UPLOAD_TOKEN, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, and
+// SESSION_SECRET. BASE_DOMAIN and ADMIN_GITHUB_USER don't fit this shape
+// — they trim/lowercase first — so they stay inline.
+func requireString(getenv func(string) string, name string) (string, error) {
+	v := getenv(name)
+	if v == "" {
+		return "", fmt.Errorf("%s is required", name)
+	}
+	return v, nil
 }
 
 func stringOr(v, def string) string {
