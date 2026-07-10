@@ -24,7 +24,8 @@ func TestParseSize_Table(t *testing.T) {
 		{in: "10PB", wantErr: true}, // unknown suffix
 		{in: "-5MB", wantErr: true}, // negative
 		{in: "abc", wantErr: true},
-		{in: "9223372036854775807999MB", wantErr: true}, // overflow
+		{in: "MB", wantErr: true},                 // numPart empty after stripping suffix
+		{in: "9223372036854776kb", wantErr: true}, // multiply overflow, not ParseInt range
 	}
 	for _, c := range cases {
 		t.Run(c.in, func(t *testing.T) {
