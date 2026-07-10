@@ -3,22 +3,22 @@
 _Rendered by `/kanban`. Do not hand-edit below the header._
 
 **WIP / Gates:** read from `config.md` (`wip_limit`, `gates`).
-_last rendered: 2026-07-10 — 1 in flight / WIP 3 · 0 done / 12 cards_
+_last rendered: 2026-07-10 — 2 in flight / WIP 3 · 1 done / 12 cards_
 
 ## Backlog
-- CARD-002 — SQLite store & migrations · backlog · [M1]
 - CARD-003 — Create site via API (zip) and serve it · backlog · [M2]
 - CARD-004 — Multi-file upload with paths preserved · backlog · [M2]
 - CARD-005 — Reaper: TTL expiry & startup sweep · backlog · [M2]
 - CARD-006 — Update site in place (PUT, timer reset) · backlog · [M2]
 - CARD-007 — Credential-free web upload page (upload grants) · backlog · [M3]
-- CARD-008 — Admin sign-in via GitHub OAuth · backlog · [M4]
 - CARD-009 — Admin site list: API + UI (paging, sort, search) · backlog · [M4]
 - CARD-010 — Admin actions: permanent, delete, download · backlog · [M4]
 - CARD-011 — Helm chart & production hardening · backlog · [M5]
-- CARD-012 — Clarify the coverage target as a layer aggregate, not a per-function floor · backlog · (no milestone)
+- CARD-012 — Clarify the coverage target as a layer aggregate, not a per-function floor · backlog · (no milestone) · ready, held: its next step is a design PR and pushes are blocked
 
 ## Slice
+- CARD-002 — SQLite store & migrations · slice · [M1]
+- CARD-008 — Admin sign-in via GitHub OAuth · slice · [M4]
 
 ## Design
 
@@ -29,16 +29,16 @@ _last rendered: 2026-07-10 — 1 in flight / WIP 3 · 0 done / 12 cards_
 ## Review
 
 ## Deliver
-- CARD-001 — Walking skeleton: config, healthz/metrics, host routing, Dockerfile, CI · deliver · task/001-walking-skeleton · [M1] · design PR #1 merged · PR #3 open
 
 ## Blocked
 
 ## Done
+- CARD-001 — Walking skeleton: config, healthz/metrics, host routing, Dockerfile, CI · done · [M1] · design PR #1 · PR #3 · 1d · 0 reworks
 
 ## Split
 
 ## Milestones
-- M1 — Walking skeleton · 0/2 · in progress
+- M1 — Walking skeleton · 1/2 · in progress
 - M2 — Sites via API · 0/4 · not started
 - M3 — Web uploads · 0/1 · not started
 - M4 — Admin console · 0/3 · not started
