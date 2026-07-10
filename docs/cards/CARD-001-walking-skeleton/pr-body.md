@@ -1,37 +1,111 @@
-## CARD-001 — design: Walking skeleton: config, healthz/metrics, host routing, Dockerfile, CI   [task · infra]
+## CARD-001 — Walking skeleton: config, healthz/metrics, host routing, Dockerfile, CI   [task]
+
+Implements slice S1. The design for this card landed separately in #1.
 
 ### Why
-Stand up the project's walking skeleton so an operator can run the binary — locally and as a distroless container — and probe it. This card creates the repository from empty: the Go module, the `cmd/` + `internal/` + `web/` layout that every later card extends, and the plumbing they all consume — configuration parsing/validation, the injected `Clock`, JSON `slog` setup, the Prometheus registry + HTTP histogram, the host-normalizing root handler (`/healthz`, `/metrics`, branded not-found page), request-logging and metrics middleware, the Dockerfile, and the CI workflow. No product feature ships; the value is a running, observable, packaged process and the package boundaries every subsequent slice builds on. This is slice **S1** in `06-vertical-slices.md`.
+Nyx Drop needs the plumbing every later card builds on: typed configuration parsed from the
+environment and validated at startup, an injected `Clock`, a Prometheus registry, host-based
+routing that distinguishes the apex app surface from site subdomains, a branded 404 for
+unknown hosts, and a distroless container plus CI to prove it all builds. Nothing here is
+user-facing yet — the value is that CARD-002 (SQLite store) and CARD-008 (admin OAuth) can now
+start against a real, tested skeleton rather than an empty module.
 
-**This is the first code in the repo**, so the scaffolding decisions here (module path, package boundaries, wiring seams) are load-bearing for CARD-002…011 — the cheapest moment to correct a package boundary is now.
+### What changed
+- **`internal/config`** — `Load(getenv func(string) string) (*Config, error)` parses and
+  validates every variable, failing fast with an error that names the offending one. `ParseSize`
+  handles human-readable byte sizes (decimal SI `KB/MB/GB`, binary `KiB/MiB/GiB`, bare `K/M/G`
+  aliases) per **ADR-0001**, with overflow guarded. Accessors `Addr()` and `ExternalOrigin()`.
+- **`internal/clock`** — the injected `Clock` (invariant 9), with `Real` (UTC) and `Fake`
+  (`SetNow`/`Advance`) implementations.
+- **`internal/metrics`** — `New(prometheus.Registerer)` registers the Go and process collectors
+  plus `http_request_duration_seconds{class}` on a caller-supplied registry. No `promauto`
+  global.
+- **`internal/server`** — `New(Deps) (http.Handler, error)`. `top()` matches `/healthz` and
+  `/metrics` **before** host routing and outside the middleware chain (invariant 8,
+  **ADR-0002**); `rootHost()` sends the apex to an empty `apexMux` and every site/unknown host to
+  the branded 404. `requestLog` emits exactly one JSON `slog` line per host-routed request
+  (host, path, method, status, dur_ms, bytes); `instrument` observes latency by route class.
+  `renderNotFound` templates the embedded 404 page once at startup, injecting the instance's own
+  origin.
+- **`web`** — `embed.FS` carrying `notfound.html`, adapted from the mockups. Self-contained,
+  zero external requests.
+- **`cmd/drop`** — `run(getenv)` wires config → logger → clock → registry/metrics → server →
+  `http.Server` (`ReadHeaderTimeout: 10s`), with SIGINT/SIGTERM graceful shutdown.
+- **`Dockerfile`** — two-stage, `CGO_ENABLED=0`, `-trimpath -ldflags="-s -w"`, final image
+  `gcr.io/distroless/static:nonroot`, `USER 65532:65532`.
+- **`.github/workflows/ci.yml`** — `test` job (vet, gofmt emptiness, `go test -race`) and
+  `docker` job (`docker build`, no push).
+- **`README.md`** — what it is, the config-variable table, the local-dev block, docker build.
 
-### Design summary
-- **Pure core, imperative shell.** All decidable logic lives in pure functions over plain data (`config.Load` over an injected `getenv`, `ParseSize`, `normalizeHost`, `siteLabel`, `routeClass`, `renderNotFound`); `net/http`, `embed`, `os`, Prometheus and signal handling stay at the edges (`internal/server`, `web`, `cmd/drop`). Config is parsed via `Load(getenv func(string) string)` rather than reading `os.Getenv` internally, so tests inject a map instead of mutating process env (race-prone under `-race`).
-- **Extension seams for later cards, chosen deliberately.** `server.New(server.Deps{…}) (http.Handler, error)` takes a struct, not a positional arg list, so CARD-002/003/007/008 add wiring (store, locks, auth) by adding fields without touching call sites. Health readiness is an injected `func(context.Context) error` — an always-nil stub in S1, replaced by CARD-002's real DB-ping + data-dir-writability check.
-- **Ops endpoints bypass the middleware** (ADR-0002). `/healthz` and `/metrics` are matched at the top of the handler, above `requestLog`+`instrument`, so kubelet's ~10s probes and Prometheus scrapes neither flood the access log nor dominate the request histogram. Host-routed traffic only: `requestLog` → `instrument`, matching `01-architecture.md`'s middleware order.
-- **Route-class taxonomy fixed now** (ADR-0002): apex host → `app`; every other host (valid site label, multi-label, or unknown) → `site`; `admin` reserved for CARD-008/009. The Prometheus registry is created in `main` and passed explicitly — no promauto/global registry, so every test builds its own.
-- **Size suffixes get a written decision** (ADR-0001): `MB` is ambiguous (1e6 vs 2^20) and silently shifts real upload limits. `config.ParseSize` fixes decimal SI (`KB/MB/GB = 1000^n`) with explicit binary variants (`KiB/MiB/GiB`), in ~40 lines rather than a third-party library the dependency policy forbids.
-- **The branded 404 is templated, not static.** `web/notfound.html` is rendered once at startup with `html/template`, injecting `cfg.ExternalOrigin()` — the mockup's hardcoded `sites.nyxhub.net` link would be wrong for any other self-hosted domain.
+Two bugs were found and fixed along the way, both worth calling out:
 
-### Acceptance criteria (sharpened)
-- **`/healthz` answers on any Host, matched before host routing.** `GET /healthz` → 200 body `ok` for `Host` ∈ {`sites.nyxhub.net`, `anything.example`, `10.0.0.5:8080`, empty}; S1 readiness is an always-succeeding stub. — spec *Static serving*; `00-overview.md` invariant 8. Test: `TestHealthz_AnyHost_200`.
-- **Bad configuration fails fast, naming the variable, non-zero exit.** `config.Load` errors mention the offending variable for missing `BASE_DOMAIN`; `BASE_DOMAIN` with scheme/port/path; `SCHEME=ftp`; `TTL=banana`/`TTL=0`; `MAX_UPLOAD_SIZE=10PB`; `MAX_FILE_COUNT=-1`; `PORT=70000`; `LOG_LEVEL=trace`; and each missing required var (`UPLOAD_TOKEN`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `ADMIN_GITHUB_USER`, `SESSION_SECRET`). `main` prints to stderr and exits 1. — spec *Configuration*. Test: `TestLoad_InvalidAndMissing` (table-driven).
-- **`/metrics` serves the registry host-independently; exactly one JSON log line per host-routed request.** Exposition format on any Host, exposing `go_*`, `process_*`, `http_request_duration_seconds`. Each host-routed request emits one JSON `slog` line with `host, path, method, status, dur_ms, bytes`; `/healthz` and `/metrics` emit none. — spec *Observability*; invariant 8. Tests: `TestMetrics_AnyHost_Exposition`, `TestRequestLog_OneLinePerRequest`, `TestOpsEndpoints_NotLogged`.
-- **Unknown host → branded 404; image builds distroless/non-root; CI green.** Unknown, site-label, and multi-label hosts all → 404 with the branded self-contained HTML (`text/html`, body contains "faded into the night"). `docker build .` succeeds; final image `gcr.io/distroless/static:nonroot`, uid 65532. CI runs `go vet`, `gofmt -l` (fails if non-empty), `go test -race ./...`, `docker build`. — spec *Architecture overview*, *Deployment*. Tests: `TestUnknownHost_Branded404`, `TestMultiLabelHost_404`.
+1. **`normalizeHost` was not idempotent.** `FuzzNormalizeHost` found that the bracket branch
+   returned `[...]` contents raw, and those contents could themselves look like `host:port` and
+   be stripped again on a second pass (`normalizeHost("[:0]")` → `":0"` → `""`). Fixed by
+   factoring port-stripping into a `stripPort` helper that is idempotent on its own output, and
+   routing bracket content back through it. Fuzzing found a second counterexample, `[0:0]`,
+   during the fix; both are now permanent regression files in the corpus.
+2. **`.gitignore`'s bare `drop` pattern** — intended for the built binary — was also matching
+   `cmd/drop/`, silently keeping `main.go` untracked. Anchored to `/drop`.
 
-### ADRs in this PR
-- ADR-0001 — Human-readable byte-size suffixes: decimal SI with binary variants
-- ADR-0002 — HTTP observability contract: ops-endpoint bypass and route-class taxonomy
+### Acceptance criteria
+- [x] `go run` then `GET /healthz` → 200 with any `Host` header (spec "Static serving — `/healthz` bypasses Host routing"; DB ping stubbed OK until CARD-002)
+- [x] Missing or invalid env (unparseable `TTL`/sizes, bad `SCHEME`, malformed `BASE_DOMAIN`) → non-zero exit naming the variable (spec "Configuration")
+- [x] `GET /metrics` serves the Prometheus registry host-independently; one JSON `slog` line per request with host, path, status, duration, bytes (spec "Observability")
+- [x] Unknown host → branded 404 page; `docker build` succeeds (distroless, non-root); CI workflow (vet/fmt/test/build) green (spec "Architecture overview", "Deployment")
 
-This PR also adds `docs/adrs/template.md` and the index table in `docs/adrs/README.md`, which the scaffold left empty.
+### Testing
+| Gate | Result |
+|---|---|
+| `go vet ./...` | clean |
+| `gofmt -l .` | empty |
+| `go test -race ./...` | **95 passed, 0 failed**, 6 packages |
+| `docker build .` | succeeds; `docker inspect` → `User=65532:65532` |
+| `go test -fuzz=FuzzParseSize -fuzztime=30s` | no new counterexamples |
+| `go test -fuzz=FuzzNormalizeHost -fuzztime=30s` | no new counterexamples |
 
-### Open questions / decisions deferred
-None — the designer raised no open questions and reported no spec discrepancies.
+**Core logic layer coverage: 92.0% (172/187 statements)**, against a 90% target — measured as an
+aggregate across `internal/clock`, `internal/config`, the `internal/server` routing helpers,
+`renderNotFound`, and the middleware recorder. `cmd/drop/main.go` is excluded by the design's
+test strategy (blocking `ListenAndServe` + signal wiring, covered indirectly).
 
-One thing the design records rather than decides, worth a reviewer's eye: **invariant 9 ("handlers use the injected `Clock`, never `time.Now()`") governs *business* time, not latency.** The `requestLog`/`instrument` middleware deliberately measures request duration with the monotonic wall clock, because a frozen fake `Clock` would report `dur_ms=0`. This is captured as a KNOWLEDGE Gotcha so a future reviewer doesn't "fix" it into a bug.
+The `card-tester` initially blocked on `renderNotFound` at 71.4%, reading the target as a
+per-function floor. That was overridden: the design states a layer target, the reading was
+self-inconsistent (it passed `parseLogLevel` at 50.0% and `isDigits` at 83.3% unflagged), and
+`renderNotFound`'s two uncovered statements are unreachable error returns over a compile-time
+`embed.FS`. Covering them would have meant deviating from the merged design's fixed signature to
+inject a breakable `fs.FS`. **CARD-012** is open to remove the ambiguity from the wording and
+lift the rule into `PROTOCOL-ADDENDUM.md`.
 
-Full design: `docs/cards/CARD-001-walking-skeleton/design.md` (in this diff). Merging this PR approves the
-design and unblocks implementation — the implementation branch is cut from main after this merges,
-and the code arrives as a second PR.
+### Review
+Approved with no blocking findings. Host-parsing was scrutinised hardest, since a
+`strings.HasSuffix` subdomain check is a classic host-confusion vector: `siteLabel` matches on
+the full-dot suffix `"." + baseDomain` and then rejects empty or dotted labels, so
+`evilsites.nyxhub.net`, `xsites.nyxhub.net`, `sites.nyxhub.net.evil.com`, `.sites.nyxhub.net`
+and the apex all fail safe to a branded 404 — only `good.sites.nyxhub.net` yields a slug.
+Invariants 8 and 9, UTC handling, ADR-0001 and ADR-0002 all verified adhered to; `go.mod`
+direct-requires only `prometheus/client_golang`.
 
-🤖 Design delivered via /kanban
+Four non-blocking follow-ups recorded in `review.md`, none gating this PR:
+- the `health` 503 branch is unexercised (S1's stub never fails) — **pin it in CARD-002**;
+- trailing-dot / leading-dot hosts fail safe but are untested — **CARD-003 must decide
+  trailing-dot (FQDN) handling explicitly** when it adds real site serving;
+- `config.go:50` re-reads `getenv("BASE_DOMAIN")` for the error message (nit);
+- `config_test.go:106` uses `TTL=0s` where AC-2 says `TTL=0` (equivalent; traceability nit).
+
+### Knowledge
+Added to `KNOWLEDGE.md`:
+- *Gotchas* — composing an idempotent port-stripper behind a bracket-unwrap step is not
+  automatically idempotent; route every extraction branch through one shared primitive, and back
+  the invariant with live fuzzing rather than the seed corpus alone.
+- *Gotchas* — `.gitignore` entries for build artifacts sharing a name with a source directory
+  must be root-anchored (`/drop`, not `drop`).
+- *Gotchas* — the coverage target is a layer aggregate, not a per-function floor; unreachable
+  error paths are not coverage debt.
+- *Conventions* — `siteLabel` is host-confusion-safe by construction; CARD-003 must preserve its
+  exact shape when it replaces the site-host stub.
+
+Carried from the design phase: **ADR-0001** (human-readable byte-size suffixes) and **ADR-0002**
+(HTTP observability contract), both merged in #1.
+
+🤖 Card delivered via /kanban
