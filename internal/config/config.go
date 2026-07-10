@@ -97,11 +97,7 @@ func Load(getenv func(string) string) (*Config, error) {
 	}
 	cfg.SessionSecret = sessionSecret
 
-	dataDir := stringOr(getenv("DATA_DIR"), "/data")
-	if dataDir == "" {
-		return nil, fmt.Errorf("DATA_DIR must not be empty")
-	}
-	cfg.DataDir = dataDir
+	cfg.DataDir = stringOr(getenv("DATA_DIR"), "/data")
 
 	maxUploadSizeStr := stringOr(getenv("MAX_UPLOAD_SIZE"), "100MB")
 	maxUploadSize, err := ParseSize(maxUploadSizeStr)
