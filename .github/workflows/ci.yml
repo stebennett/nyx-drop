@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: go vet
+        run: go vet ./...
+      - name: gofmt
+        run: test -z "$(gofmt -l .)"
+      - name: go test
+        run: go test -race ./...
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker build
+        run: docker build -t nyx-drop:${{ github.sha }} .
+      # Registry push is deferred until the target registry is decided
+      # (see 05-deployment.md "CI"). Once decided, add a login step and
+      # push on tags/main only — never on pull_request builds.
+      # - name: docker push
+      #   if: github.ref == 'refs/heads/main'
+      #   run: |
+      #     docker tag nyx-drop:${{ github.sha }} REGISTRY/nyx-drop:${{ github.sha }}
+      #     docker push REGISTRY/nyx-drop:${{ github.sha }}
