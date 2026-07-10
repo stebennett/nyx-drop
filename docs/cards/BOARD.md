@@ -17,10 +17,10 @@ _last rendered: 2026-07-10 — 2 in flight / WIP 3 · 1 done / 12 cards_
 - CARD-012 — Clarify the coverage target as a layer aggregate, not a per-function floor · backlog · (no milestone) · ready, held: its next step is a design PR and pushes are blocked
 
 ## Slice
-- CARD-002 — SQLite store & migrations · slice · [M1]
-- CARD-008 — Admin sign-in via GitHub OAuth · slice · [M4]
 
 ## Design
+- CARD-002 — SQLite store & migrations · design · task/002-store-migrations-design · [M1]
+- CARD-008 — Admin sign-in via GitHub OAuth · design · feature/008-admin-oauth-design · [M4]
 
 ## Implement
 
