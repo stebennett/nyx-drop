@@ -3,7 +3,7 @@
 _Rendered by `/kanban`. Do not hand-edit below the header._
 
 **WIP / Gates:** read from `config.md` (`wip_limit`, `gates`).
-_last rendered: 2026-07-09 — 1 in flight / WIP 3 · 0 done / 11 cards_
+_last rendered: 2026-07-10 — 1 in flight / WIP 3 · 0 done / 11 cards_
 
 ## Backlog
 - CARD-002 — SQLite store & migrations · backlog · [M1]
@@ -22,9 +22,9 @@ _last rendered: 2026-07-09 — 1 in flight / WIP 3 · 0 done / 11 cards_
 ## Design
 
 ## Implement
-- CARD-001 — Walking skeleton: config, healthz/metrics, host routing, Dockerfile, CI · implement · task/001-walking-skeleton · [M1] · design PR #1 merged
 
 ## Test
+- CARD-001 — Walking skeleton: config, healthz/metrics, host routing, Dockerfile, CI · test · task/001-walking-skeleton · [M1] · design PR #1 merged
 
 ## Review
 
