@@ -20,7 +20,7 @@ _last rendered: 2026-07-10 — 3 in flight / WIP 3 · 1 done / 12 cards_
 ## Design
 - CARD-002 — SQLite store & migrations · design · task/002-store-migrations-design · [M1] · design PR #10 open
 - CARD-008 — Admin sign-in via GitHub OAuth · design · feature/008-admin-oauth-design · [M4] · design PR #11 open
-- CARD-012 — Clarify the coverage target as a layer aggregate, not a per-function floor · design · task/012-coverage-target-wording-design · (no milestone)
+- CARD-012 — Clarify the coverage target as a layer aggregate, not a per-function floor · design · task/012-coverage-target-wording-design · (no milestone) · design PR #12 open
 
 ## Implement
 

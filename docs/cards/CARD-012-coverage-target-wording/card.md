@@ -9,7 +9,7 @@ right_sized: true
 depends_on: [CARD-001]
 branch: task/012-coverage-target-wording-design
 worktree: /Users/stevebennett/Code/nyx-drop-worktrees/CARD-012
-design_pr_url: ""
+design_pr_url: https://github.com/stebennett/nyx-drop/pull/12
 pr_url: ""
 adrs: []
 reworks: 0
