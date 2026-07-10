@@ -3,7 +3,7 @@
 _Rendered by `/kanban`. Do not hand-edit below the header._
 
 **WIP / Gates:** read from `config.md` (`wip_limit`, `gates`).
-_last rendered: 2026-07-09 — 1 in flight / WIP 3 · 0 done / 11 cards_
+_last rendered: 2026-07-10 — 1 in flight / WIP 3 · 0 done / 12 cards_
 
 ## Backlog
 - CARD-002 — SQLite store & migrations · backlog · [M1]
@@ -16,19 +16,20 @@ _last rendered: 2026-07-09 — 1 in flight / WIP 3 · 0 done / 11 cards_
 - CARD-009 — Admin site list: API + UI (paging, sort, search) · backlog · [M4]
 - CARD-010 — Admin actions: permanent, delete, download · backlog · [M4]
 - CARD-011 — Helm chart & production hardening · backlog · [M5]
+- CARD-012 — Clarify the coverage target as a layer aggregate, not a per-function floor · backlog · (no milestone)
 
 ## Slice
 
 ## Design
 
 ## Implement
-- CARD-001 — Walking skeleton: config, healthz/metrics, host routing, Dockerfile, CI · implement · task/001-walking-skeleton · [M1] · design PR #1 merged
 
 ## Test
 
 ## Review
 
 ## Deliver
+- CARD-001 — Walking skeleton: config, healthz/metrics, host routing, Dockerfile, CI · deliver · task/001-walking-skeleton · [M1] · design PR #1 merged · PR #3 open
 
 ## Blocked
 
