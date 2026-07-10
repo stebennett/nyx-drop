@@ -10,7 +10,7 @@ depends_on: []
 branch: task/001-walking-skeleton
 worktree: /Users/stevebennett/Code/nyx-drop-worktrees/CARD-001
 design_pr_url: https://github.com/stebennett/nyx-drop/pull/1
-pr_url: ""
+pr_url: https://github.com/stebennett/nyx-drop/pull/3
 adrs: [ADR-0001, ADR-0002]
 reworks: 0
 started: 2026-07-09

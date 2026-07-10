@@ -29,7 +29,7 @@ _last rendered: 2026-07-10 — 1 in flight / WIP 3 · 0 done / 12 cards_
 ## Review
 
 ## Deliver
-- CARD-001 — Walking skeleton: config, healthz/metrics, host routing, Dockerfile, CI · deliver · task/001-walking-skeleton · [M1] · design PR #1 merged
+- CARD-001 — Walking skeleton: config, healthz/metrics, host routing, Dockerfile, CI · deliver · task/001-walking-skeleton · [M1] · design PR #1 merged · PR #3 open
 
 ## Blocked
 
