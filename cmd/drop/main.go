@@ -32,8 +32,8 @@ func main() {
 // run builds and serves the process. It is separated from main so tests
 // can drive it with a fake getenv rather than mutating the real process
 // environment; config.Load and server.New already cover the fail-fast and
-// routing behavior this wires together (tasks 4/10), so run's own
-// responsibility is startup wiring and graceful shutdown.
+// routing behavior this wires together, so run's own responsibility is
+// startup wiring and graceful shutdown.
 func run(getenv func(string) string) error {
 	cfg, err := config.Load(getenv)
 	if err != nil {
