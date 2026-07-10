@@ -3,8 +3,8 @@ id: CARD-001
 type: task
 layer: infra
 title: "Walking skeleton: config, healthz/metrics, host routing, Dockerfile, CI"
-status: test
-phase: test
+status: review
+phase: review
 right_sized: true
 depends_on: []
 branch: task/001-walking-skeleton
