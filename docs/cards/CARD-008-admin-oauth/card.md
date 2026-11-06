@@ -3,8 +3,8 @@ id: CARD-008
 type: feature
 layer: api
 title: Admin sign-in via GitHub OAuth
-status: backlog
-phase: backlog
+status: slice
+phase: slice
 right_sized: ""
 depends_on: [CARD-001]
 branch: ""
@@ -13,7 +13,7 @@ design_pr_url: ""
 pr_url: ""
 adrs: []
 reworks: 0
-started: ""
+started: 2026-07-10
 delivered: ""
 created: 2026-07-09
 ---
