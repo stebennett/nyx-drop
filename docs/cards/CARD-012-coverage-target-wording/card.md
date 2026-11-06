@@ -3,17 +3,17 @@ id: CARD-012
 type: task
 layer: infra
 title: "Clarify the coverage target as a layer aggregate, not a per-function floor"
-status: backlog
-phase: backlog
+status: design
+phase: design
 right_sized: true
 depends_on: [CARD-001]
-branch: ""
-worktree: ""
-design_pr_url: ""
+branch: task/012-coverage-target-wording-design
+worktree: /Users/stevebennett/Code/nyx-drop-worktrees/CARD-012
+design_pr_url: https://github.com/stebennett/nyx-drop/pull/12
 pr_url: ""
 adrs: []
 reworks: 0
-started: ""
+started: 2026-07-10
 delivered: ""
 created: 2026-07-10
 ---
