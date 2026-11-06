@@ -3,15 +3,15 @@ id: CARD-008
 type: feature
 layer: api
 title: Admin sign-in via GitHub OAuth
-status: slice
-phase: slice
-right_sized: ""
+status: design
+phase: design
+right_sized: true
 depends_on: [CARD-001]
-branch: ""
-worktree: ""
-design_pr_url: ""
+branch: feature/008-admin-oauth-design
+worktree: /Users/stevebennett/Code/nyx-drop-worktrees/CARD-008
+design_pr_url: https://github.com/stebennett/nyx-drop/pull/11
 pr_url: ""
-adrs: []
+adrs: [ADR-0005, ADR-0006]
 reworks: 0
 started: 2026-07-10
 delivered: ""

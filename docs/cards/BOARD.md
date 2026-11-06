@@ -3,7 +3,7 @@
 _Rendered by `/kanban`. Do not hand-edit below the header._
 
 **WIP / Gates:** read from `config.md` (`wip_limit`, `gates`).
-_last rendered: 2026-07-10 — 2 in flight / WIP 3 · 1 done / 12 cards_
+_last rendered: 2026-07-10 — 3 in flight / WIP 3 · 1 done / 12 cards_
 
 ## Backlog
 - CARD-003 — Create site via API (zip) and serve it · backlog · [M2]
@@ -14,13 +14,13 @@ _last rendered: 2026-07-10 — 2 in flight / WIP 3 · 1 done / 12 cards_
 - CARD-009 — Admin site list: API + UI (paging, sort, search) · backlog · [M4]
 - CARD-010 — Admin actions: permanent, delete, download · backlog · [M4]
 - CARD-011 — Helm chart & production hardening · backlog · [M5]
-- CARD-012 — Clarify the coverage target as a layer aggregate, not a per-function floor · backlog · (no milestone) · ready, held: its next step is a design PR and pushes are blocked
 
 ## Slice
-- CARD-002 — SQLite store & migrations · slice · [M1]
-- CARD-008 — Admin sign-in via GitHub OAuth · slice · [M4]
 
 ## Design
+- CARD-002 — SQLite store & migrations · design · task/002-store-migrations-design · [M1] · design PR #10 open
+- CARD-008 — Admin sign-in via GitHub OAuth · design · feature/008-admin-oauth-design · [M4] · design PR #11 open
+- CARD-012 — Clarify the coverage target as a layer aggregate, not a per-function floor · design · task/012-coverage-target-wording-design · (no milestone) · design PR #12 open
 
 ## Implement
 
