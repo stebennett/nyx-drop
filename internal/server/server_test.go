@@ -26,15 +26,12 @@ const testBaseDomain = "test.local"
 // buffer.
 func newTestServer(t *testing.T, logWriter io.Writer) (http.Handler, *clock.Fake) {
 	t.Helper()
-	return newTestServerWithConfig(t, logWriter, &config.Config{BaseDomain: testBaseDomain, Scheme: "http"})
-}
 
-func newTestServerWithConfig(t *testing.T, logWriter io.Writer, cfg *config.Config) (http.Handler, *clock.Fake) {
-	t.Helper()
 	if logWriter == nil {
 		logWriter = io.Discard
 	}
 
+	cfg := &config.Config{BaseDomain: testBaseDomain, Scheme: "http"}
 	fc := clock.NewFake(time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC))
 	reg := prometheus.NewRegistry()
 	m := metrics.New(reg)
@@ -151,7 +148,17 @@ func TestSiteHost_404UntilStore(t *testing.T) {
 
 func TestBranded404_UsesConfiguredLocalOrigin(t *testing.T) {
 	cfg := &config.Config{BaseDomain: "localtest.me", Scheme: "http", Port: 8181}
-	h, _ := newTestServerWithConfig(t, nil, cfg)
+	reg := prometheus.NewRegistry()
+	h, err := New(Deps{
+		Config:   cfg,
+		Logger:   slog.New(slog.NewJSONHandler(io.Discard, nil)),
+		Metrics:  metrics.New(reg),
+		Registry: reg,
+		Health:   func(context.Context) error { return nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, host := range []string{"missing.localtest.me:8181", "unrelated.example.com:9999"} {
 		t.Run(host, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/missing", nil)
