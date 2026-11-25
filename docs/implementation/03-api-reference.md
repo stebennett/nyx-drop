@@ -1,6 +1,7 @@
 # API Reference
 
-Complete request/response contract. `$BASE` = `SCHEME://BASE_DOMAIN` (examples use
+Complete request/response contract. `$BASE` is the configured apex origin, including
+any nonstandard public port (examples use
 `https://sites.nyxhub.net`). All errors: `{"error": "<message>"}` with the status shown.
 All timestamps: RFC 3339 UTC.
 

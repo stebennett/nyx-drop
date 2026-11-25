@@ -112,7 +112,8 @@ Success — `201 Created`:
 }
 ```
 
-The URL scheme comes from the `SCHEME` config value (default `https`).
+Public URLs use the configured scheme, host, and any nonstandard public port.
+The apex public origin uses `BASE_DOMAIN` as its host.
 
 Errors: `401` bad/missing/expired/already-used credential, `413` size limits exceeded, `400` invalid archive / no files / path traversal detected.
 
@@ -134,7 +135,7 @@ This enables stable URLs for CI use ("redeploy the preview for PR #42"): create 
 
 ### Upload page
 
-Served at `<SCHEME>://<BASE_DOMAIN>/`. Drag-and-drop of a zip file or a folder of files — no credential is ever requested. On upload the page fetches a fresh grant from `GET /api/upload-grant`, then calls `POST /api/sites` with it and displays the resulting site URL with a copy button. If the upload fails with `401` (grant expired mid-upload or consumed), the page automatically fetches a new grant and retries once before surfacing an error.
+Served at `<public origin>/`. Drag-and-drop of a zip file or a folder of files — no credential is ever requested. On upload the page fetches a fresh grant from `GET /api/upload-grant`, then calls `POST /api/sites` with it and displays the resulting site URL with a copy button. If the upload fails with `401` (grant expired mid-upload or consumed), the page automatically fetches a new grant and retries once before surfacing an error.
 
 Uploads show a **progress indicator** (percentage/bar driven by upload progress events) — with a 100MB body limit, silent uploads are not acceptable.
 
@@ -162,11 +163,11 @@ Every site receives the single global TTL; there is no per-site TTL override.
 
 ### Authentication
 
-GitHub OAuth (authorization code flow). `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` from config; callback URL `<SCHEME>://<BASE_DOMAIN>/auth/callback`. The authorization request carries a random `state` parameter, stored in a short-lived cookie (10-minute expiry, `__Host-` prefixed, cleared on callback) and verified on callback (login-CSRF protection). After the OAuth exchange, the authenticated GitHub login must equal `ADMIN_GITHUB_USER` **compared case-insensitively** (GitHub logins are case-insensitive); any other user receives `403`.
+GitHub OAuth (authorization code flow). `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` from config; callback URL `<public origin>/auth/callback`. The authorization request carries a random `state` parameter, stored in a short-lived cookie (10-minute expiry, `__Host-` prefixed, cleared on callback) and verified on callback (login-CSRF protection). After the OAuth exchange, the authenticated GitHub login must equal `ADMIN_GITHUB_USER` **compared case-insensitively** (GitHub logins are case-insensitive); any other user receives `403`.
 
 On success a signed session cookie is issued: name `__Host-session` (HMAC with `SESSION_SECRET`, `HttpOnly`, `Secure`, `Path=/`, no `Domain` attribute, `SameSite=Lax`, 7-day expiry). When `SCHEME=http` (local development only) the cookie downgrades to name `session` without `Secure` — browsers refuse `Secure`/`__Host-` cookies on non-localhost HTTP origins, and admin login would otherwise silently fail in dev. The `__Host-` prefix makes the cookie host-only and unsettable from subdomains — uploaded sites run arbitrary JS on `*.<BASE_DOMAIN>` and must not be able to shadow or fixate the admin session via `Domain=.<BASE_DOMAIN>` cookies (cookie tossing).
 
-**CSRF protection:** all state-changing admin endpoints (`POST`/`DELETE`) additionally verify that the request's `Origin` (or `Referer`) header, when present, matches `<SCHEME>://<BASE_DOMAIN>`, on top of `SameSite=Lax`. All admin endpoints require a valid session.
+**CSRF protection:** all state-changing admin endpoints (`POST`/`DELETE`) additionally verify that the request's `Origin` (or `Referer`) header, when present, matches the configured apex public origin, on top of `SameSite=Lax`. All admin endpoints require a valid session.
 
 **Sign-in/out flow:**
 
@@ -178,7 +179,7 @@ On success a signed session cookie is issued: name `__Host-session` (HMAC with `
 
 ### Admin UI
 
-Served at `<SCHEME>://<BASE_DOMAIN>/admin` (embedded static frontend compiled into the binary via `embed.FS`; plain HTML/JS, no build-time framework). Table of all sites: slug (linked to the live site), created, last updated, expires (or "permanent"), size, file count, source. Per-site actions: toggle permanent, download zip, delete (with confirm).
+Served at `<public origin>/admin` (embedded static frontend compiled into the binary via `embed.FS`; plain HTML/JS, no build-time framework). Table of all sites: slug (linked to the live site), created, last updated, expires (or "permanent"), size, file count, source. Per-site actions: toggle permanent, download zip, delete (with confirm).
 
 ### Admin API
 
@@ -233,6 +234,7 @@ No SPA fallback rewriting in v1.
 |---|---|---|---|
 | `BASE_DOMAIN` | yes | — | e.g. `sites.nyxhub.net` |
 | `SCHEME` | no | `https` | Scheme for generated URLs, OAuth callback, Origin checks (`http` for local dev) |
+| `PUBLIC_PORT` | no | unset | Browser-facing port, `1..65535`. When unset, HTTP uses `PORT` and HTTPS assumes `443`. URLs omit the standard port for the scheme. |
 | `TTL` | no | `24h` | Site lifetime (Go duration) |
 | `UPLOAD_TOKEN` | yes | — | Bearer token for the API (CI creates and all `PUT` updates) |
 | `GITHUB_CLIENT_ID` | yes | — | OAuth app |
