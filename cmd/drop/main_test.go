@@ -1,10 +1,38 @@
 package main
 
 import (
+	"net"
 	"net/http"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestRun_StoreOpenError(t *testing.T) {
+	// Reserve the configured port so skipping store.Open fails promptly
+	// with a listen error instead of blocking in run.
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { listener.Close() })
+	env := map[string]string{
+		"BASE_DOMAIN":          "test.local",
+		"UPLOAD_TOKEN":         "test",
+		"GITHUB_CLIENT_ID":     "test",
+		"GITHUB_CLIENT_SECRET": "test",
+		"ADMIN_GITHUB_USER":    "test",
+		"SESSION_SECRET":       "test",
+		"DATA_DIR":             filepath.Join(t.TempDir(), "missing"),
+		"PORT":                 strconv.Itoa(listener.Addr().(*net.TCPAddr).Port),
+	}
+	err = run(func(key string) string { return env[key] })
+	if err == nil || !strings.Contains(err.Error(), "store: ping") {
+		t.Fatalf("run() = %v, want store startup error", err)
+	}
+}
 
 // TestNewHTTPServer_SetsTimeouts guards against the connection-hold
 // resource-exhaustion vector where idle keep-alive connections are never

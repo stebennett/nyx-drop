@@ -17,8 +17,8 @@ import (
 	"nyx-drop/internal/metrics"
 )
 
-// HealthFunc reports process readiness. S1 always returns nil; CARD-002
-// supplies the real DB-ping + data-dir-writability check.
+// HealthFunc reports process readiness. In production it checks the DB and
+// data directory.
 type HealthFunc func(context.Context) error
 
 // Deps are server.New's dependencies, as a struct (not positional args) so

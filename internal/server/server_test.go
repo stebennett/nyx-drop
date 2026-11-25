@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"nyx-drop/internal/clock"
 	"nyx-drop/internal/config"
 	"nyx-drop/internal/metrics"
+	"nyx-drop/internal/store"
 )
 
 const testBaseDomain = "test.local"
@@ -25,6 +27,11 @@ const testBaseDomain = "test.local"
 // nil so tests that don't care about log output don't need to drain a
 // buffer.
 func newTestServer(t *testing.T, logWriter io.Writer) (http.Handler, *clock.Fake) {
+	t.Helper()
+	return newTestServerWithHealth(t, logWriter, func(context.Context) error { return nil })
+}
+
+func newTestServerWithHealth(t *testing.T, logWriter io.Writer, health HealthFunc) (http.Handler, *clock.Fake) {
 	t.Helper()
 
 	if logWriter == nil {
@@ -43,7 +50,7 @@ func newTestServer(t *testing.T, logWriter io.Writer) (http.Handler, *clock.Fake
 		Logger:   log,
 		Metrics:  m,
 		Registry: reg,
-		Health:   func(context.Context) error { return nil },
+		Health:   health,
 	})
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
@@ -70,6 +77,32 @@ func TestHealthz_AnyHost_200(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHealthz_RealReadiness(t *testing.T) {
+	dir := t.TempDir()
+	db, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	probe := func(dataDir string, code int, body string) {
+		t.Helper()
+		h, _ := newTestServerWithHealth(t, nil, store.Readiness(db, dataDir))
+		req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+		req.Host = "unrelated.example.com"
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != code || rec.Body.String() != body {
+			t.Errorf("/healthz = (%d, %q), want (%d, %q)", rec.Code, rec.Body.String(), code, body)
+		}
+	}
+	probe(dir, http.StatusOK, "ok")
+	probe(filepath.Join(dir, "missing"), http.StatusServiceUnavailable, "")
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	probe(dir, http.StatusServiceUnavailable, "")
 }
 
 func TestMetrics_AnyHost_Exposition(t *testing.T) {
