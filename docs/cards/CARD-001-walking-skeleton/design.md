@@ -352,12 +352,25 @@ failing test first, run it red, implement, run green, `gofmt`/`go vet`, commit.
     Grow in later cards.
 
 ## Test strategy
-- **Coverage:** ≥ 90% on the core logic layer — `internal/config` (Load, ParseSize,
-  accessors), `internal/clock`, `internal/server` routing helpers
-  (normalizeHost/siteLabel/routeClass), `renderNotFound`, and the middleware
-  recorder. `cmd/drop/main.go` (blocking `ListenAndServe`, signal wiring) is excluded
-  from the core-coverage figure; its behavior is covered indirectly by
-  `server`/`config` tests.
+- **Coverage:** the `coverage_target` is an **aggregate across the core-logic layer —
+  one covered-over-total-statements ratio, not a per-function floor.** The layer is
+  the union of: `internal/config` in full (`Load`, `ParseSize`, the accessors, and
+  helpers such as `parseLogLevel`/`isDigits`), `internal/clock` in full, and in
+  `internal/server` the pure units `normalizeHost`/`siteLabel`/`routeClass`,
+  `renderNotFound`, and the `responseRecorder`. Measure it — do not eyeball it per
+  function: run `go test -coverprofile=cover.out ./...` then
+  `go tool cover -func=cover.out`, and sum covered versus total statements over the
+  layer's functions (the per-block counts in `cover.out`); the ratio must be ≥ 90%.
+  A single function below the number does not fail the gate while the aggregate clears
+  it. In particular, `renderNotFound`'s two uncovered statements are unreachable
+  error returns (`template.ParseFS` over a compile-time `embed.FS`, `tmpl.Execute` of
+  a one-field struct); do **not** add an injectable `fs.FS` parameter to force them —
+  that would deviate from this design's fixed signature
+  `renderNotFound(cfg) ([]byte, error)` purely to move a metric. The general rule is
+  project doctrine in `PROTOCOL-ADDENDUM.md` ("The coverage target is a layer
+  aggregate, not a per-function floor"). `cmd/drop/main.go` (blocking
+  `ListenAndServe`, signal wiring) is outside the layer and excluded from the figure;
+  its behavior is covered indirectly by `server`/`config` tests.
 - **Table tests** drive config validation (one row per missing/invalid variable,
   asserting the message names the variable) and `ParseSize`.
 - **Property / fuzz (Go native):** `FuzzParseSize` (no panic on arbitrary input);

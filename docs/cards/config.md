@@ -17,7 +17,7 @@ layers:
   - api
   - web
 gate_layer: domain
-coverage_target: "90% on the core logic layer"
+coverage_target: "90% aggregate across the core-logic layer (a layer ratio, not a per-function floor) — see PROTOCOL-ADDENDUM.md"
 ---
 
 # kanban-flow configuration
