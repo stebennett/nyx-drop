@@ -14,6 +14,13 @@ db.SetMaxOpenConns(1) // single writer process; avoids SQLITE_BUSY entirely
 `MaxOpenConns(1)` is deliberate: one process, low traffic, and it removes a whole class
 of lock errors. Do not raise it without measuring.
 
+The above is the baseline before PUT. The CARD-006 migration adds
+`sites.content_generation` and `update_intents`, and changes writer connections
+to WAL with `synchronous(FULL)` before enabling PUT. See the
+[REVIEW-02 storage and durability contract](07-update-recovery.md) for guarded
+transactions, required startup checkpoints and ordering. `user_version` prevents
+an older binary without recovery support from starting against the evolved schema.
+
 ## Migrations (`internal/store/migrate.go`)
 
 - Files embedded from `internal/store/migrations/` named `0001_init.sql`,
@@ -43,13 +50,12 @@ CREATE TABLE sites (
 CREATE INDEX idx_sites_reap ON sites (permanent, expires_at);
 ```
 
-## Queries (the complete set)
+## Baseline queries (before crash-safe PUT)
 
 | Method | SQL |
 |---|---|
 | `Create` | `INSERT INTO sites (id, created_at, updated_at, expires_at, permanent, size_bytes, file_count, source) VALUES (?,?,?,?,0,?,?,?)` — map `sqlite.Error` code `SQLITE_CONSTRAINT_PRIMARYKEY` to `ErrDuplicate` |
 | `Get` | `SELECT id, created_at, updated_at, expires_at, permanent, size_bytes, file_count, source FROM sites WHERE id = ?` → `ErrNotFound` on `sql.ErrNoRows` |
-| `Touch` | `UPDATE sites SET updated_at = ?, expires_at = ?, size_bytes = ?, file_count = ? WHERE id = ?` → `ErrNotFound` if 0 rows affected |
 | `SetPermanent(true)` | `UPDATE sites SET permanent = 1 WHERE id = ?` |
 | `SetPermanent(false)` | `UPDATE sites SET permanent = 0, expires_at = ? WHERE id = ?` (new expiry = now + TTL, computed by caller) |
 | `Delete` | `DELETE FROM sites WHERE id = ?` → `ErrNotFound` if 0 rows |
@@ -96,7 +102,7 @@ with `LIMIT ? OFFSET ?` (`offset = (page-1)*per_page`). Return `(items, total)`.
 
 - Round-trip of all fields including UTC preservation (store a known time, read it back,
   `require.True(t, got.Equal(want))`).
-- `ErrDuplicate` on double insert; `ErrNotFound` on get/touch/delete of missing id.
+- `ErrDuplicate` on double insert; `ErrNotFound` on get/delete of missing id.
 - `Expired` boundary: site with `expires_at == now` **is** returned (spec: `now >= expires_at`).
 - Permanent sites never returned by `Expired` regardless of date.
 - List: every sort key × both orders (deterministic fixtures), permanent-last under

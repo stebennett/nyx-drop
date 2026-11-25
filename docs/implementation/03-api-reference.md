@@ -78,6 +78,10 @@ overwriting existing sites). Same body rules and error set as create, plus:
 
 **200:** same shape as create (fresh `expires_at = now + TTL`). `updated_at` and
 `expires_at` are reset on every successful PUT even if the site is permanent.
+The 200 confirms a durable replacement. A storage failure returns the standard
+500; if the commit result is uncertain or the response is lost, the client
+cannot infer which revision won. Retrying is a new PUT, not an exactly-once retry.
+See [REVIEW-02](07-update-recovery.md) for rollback and reconciliation.
 
 ---
 

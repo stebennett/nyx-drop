@@ -4,7 +4,7 @@
 
 ```
 nyx-drop/
-├── cmd/drop/main.go            # wiring only: config → deps → server → reaper → ListenAndServe
+├── cmd/drop/main.go            # wiring: config → deps → recover/sweep → ListenAndServe
 ├── internal/
 │   ├── config/config.go        # env parsing + validation (fail fast)
 │   ├── store/                  # SQLite access; owns all SQL
@@ -26,7 +26,8 @@ nyx-drop/
 │   │   ├── siteserve.go        # static serving for site hosts
 │   │   ├── pages.go            # upload page, admin page, 404 page (from web/)
 │   │   └── middleware.go       # request logging, metrics, auth guards, CSRF origin check
-│   ├── reaper/reaper.go
+│   ├── reaper/reaper.go        # expiry and generic startup sweeps
+│   ├── update/                 # PUT coordinator and restart reconciliation
 │   └── metrics/metrics.go      # all prometheus collectors, registered once
 ├── web/                        # embedded frontend (see 04-frontend.md)
 ├── deploy/helm/nyx-drop/    # chart (see 05-deployment.md)
@@ -61,6 +62,7 @@ type Site struct {
     SizeBytes int64
     FileCount int
     Source    string // "api" | "web"
+    // PUT adds a nullable internal content generation; it is not serialized.
 }
 
 // store.Store — all methods are safe for concurrent use.
@@ -69,7 +71,6 @@ type Store interface {
     Get(ctx context.Context, id string) (Site, error)          // ErrNotFound
     List(ctx context.Context, p ListParams) ([]Site, int, error) // items, total
     SetPermanent(ctx context.Context, id string, v bool, newExpiry time.Time) error
-    Touch(ctx context.Context, id string, updatedAt, expiresAt time.Time, size int64, files int) error // after PUT
     Delete(ctx context.Context, id string) error
     Expired(ctx context.Context, now time.Time) ([]string, error)
     Counts(ctx context.Context) (active, permanent int, err error) // for gauges
@@ -179,18 +180,21 @@ Order for apex routes: `requestLog` → `metrics` → route-specific guards.
 
 ### Update (`PUT /api/sites/{id}`)
 
-1. `requireToken`, `maxBytes`; extract to temp dir (same as create, before the lock —
-   extraction is slow and touches nothing shared).
-2. `unlock := locks.Lock(id)`; defer unlock.
-3. `store.Get(id)` → not found, or expired-and-not-permanent → 404 (remove temp dir).
-4. Swap: `os.Rename(siteDir, tmp/<id>.old)`, `os.Rename(newDir, siteDir)`,
-   `os.RemoveAll(old)`.
-5. `store.Touch(id, now, now+TTL, size, files)`.
-6. Respond 200 (same shape as create).
+1. `requireToken`, `maxBytes`; extract to ordinary tmp before the site lock.
+2. Under the site lock, settle any prior update and re-read the row. A missing
+   or expired non-permanent site returns 404; discard staging.
+3. Hand off to `internal/update`: persist a prepared intent; move live to a
+   private backup, then stage to live; commit metadata and the intent decision
+   together. Only then may backup cleanup begin or the handler return 200
+   (same shape as create). Do not use a standalone metadata touch for PUT.
+
+See [REVIEW-02](07-update-recovery.md) for exact sync ordering, the lock-free
+serving fence and generation binding, and rollback/ambiguous commit handling.
 
 ### Admin download
 
-1. `requireSession`; `unlock := locks.Lock(id)`; `store.Get(id)` → 404 if gone.
+1. `requireSession`; `unlock := locks.Lock(id)`; settle any prior update before
+   `store.Get(id)` → 404 if gone. The archive excludes the PUT generation marker.
 2. Build zip at `/data/tmp/dl-<id>-<random>.zip` while holding the lock.
 3. Unlock, then stream the file with `Content-Disposition: attachment;
    filename="<id>.zip"`; `defer os.Remove(zipPath)`.
@@ -202,16 +206,21 @@ Order for apex routes: `requestLog` → `metrics` → route-specific guards.
 ids := store.Expired(ctx, clock.Now())
 for id := range ids:
     unlock := locks.Lock(id)
+    if err := updates.Settle(ctx, id); err != nil:
+        log and count the error; unlock(); continue
     s, err := store.Get(id)
     if err == nil && !s.Permanent && !clock.Now().Before(s.ExpiresAt):
         store.Delete(id); os.RemoveAll(siteDir(id)); metrics.Reaped.Inc()
     unlock()
 ```
 
-Errors: log with site id, `metrics.ReapErrors.Inc()`, continue. Runs at startup and
-every minute (`time.Ticker`; interval injectable for tests). Startup also: remove
-`/data/tmp/*`, remove any `/data/sites/<dir>` with no DB row, and delete any DB row
-with no site directory (both directions of crash artifact).
+Errors: log with site id, `metrics.ReapErrors.Inc()`, continue. The tick must
+settle any update intent under the same lock before re-checking expiry and
+deleting. At startup, first reconcile [update intents](07-update-recovery.md)
+before serving traffic or running the generic sweep: remove ordinary tmp
+staging, remove any `/data/sites/<dir>` with no DB row, and delete any DB row
+with no site directory. Never include `/data/updates` in that sweep. Only then
+run startup expiry and start the minute ticker (interval injectable for tests).
 
 ## Sessions (`internal/auth/session.go`)
 

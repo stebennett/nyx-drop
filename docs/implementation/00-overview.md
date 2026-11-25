@@ -37,17 +37,19 @@ write it — every custom component here is under 100 lines.
 
 ## System invariants — never violate these
 
-1. **A site is never servable in a half-written state.** All content changes happen in
-   `/data/tmp` and land via `os.Rename` on the same filesystem.
+1. **A site is never servable in a half-written state.** Extract into `/data/tmp`
+   and publish via same-filesystem renames. PUT additionally binds the committed
+   row and live tree to the same generation (see [REVIEW-02](07-update-recovery.md)).
 2. **Expired means gone on public surfaces.** Serving and `PUT` treat
    `now >= expires_at && !permanent` as 404, even before the reaper runs. Only the admin
    surface can still see (and rescue) such a site.
 3. **All same-site mutations hold the per-site lock**: `PUT`, admin delete, download
-   snapshot, reap. The serve path is lock-free.
+   snapshot, permanence changes, reap. The public serve path does not take this lock.
 4. **The DB row is authority.** Creation inserts the row first (reserving the slug),
    then renames files into place; deletion removes the row first, then files. The
-   startup sweep removes both crash artifacts: directories without rows and rows
-   without directories.
+   startup sweep removes both create/delete crash artifacts: directories without
+   rows and rows without directories. Resolve interrupted PUTs first; a missing
+   live directory during a swap does not make its row an orphan.
 5. **All timestamps are UTC**, stored as RFC 3339 strings, compared with `time.Time`
    after parsing — never string comparison for "is expired", always via the injected clock.
 6. **Never trust upload paths.** Every entry path is validated (see extraction rules in

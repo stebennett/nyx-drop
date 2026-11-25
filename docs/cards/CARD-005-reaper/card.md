@@ -26,7 +26,7 @@ lifecycle metrics and logs. Mirrors slice S5.
 ## Acceptance criteria
 - [ ] With a fake clock advanced past TTL, a tick deletes the DB row first, then the site directory, for every `permanent = false AND expires_at <= now` site; permanent rows are untouched (spec "Lifecycle — the reaper")
 - [ ] Each deletion takes the per-site lock and re-checks the `permanent` flag before deleting (the admin-rescue hook) (spec "Lifecycle", "Expired-but-not-yet-reaped")
-- [ ] Startup sweep reaps sites that expired while the pod was down and removes stale tmp dirs, site dirs with no DB row, and rows with no site dir (spec "Atomic creation", "Lifecycle")
+- [ ] Run the [REVIEW-02 recovery seam](../../implementation/07-update-recovery.md) before serving traffic, generic orphan/tmp sweeps, or expiry passes. Sweep ordinary tmp dirs and create/delete orphans only; never treat the private update namespace as tmp. Once recovery succeeds, reap sites that expired while the pod was down.
 - [ ] An error reaping one site is logged and doesn't block the others; `sites_reaped_total`, `reap_errors_total`, and the `sites_active`/`sites_permanent` gauges update; lifecycle log events carry the site id (spec "Error handling", "Observability")
 
 ## Notes

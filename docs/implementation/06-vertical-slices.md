@@ -53,7 +53,8 @@ for creation; slug format/DNS validity.
 ### S5 — TTL expiry: the reaper
 **Story:** sites disappear on schedule and survive restarts correctly.
 **Depends:** S3.
-**Scope:** `internal/reaper` (tick + startup run + orphan-dir sweep + tmp sweep),
+**Scope:** `internal/reaper` (tick + startup run + orphan-dir sweep + tmp sweep
+after the [update-recovery seam](07-update-recovery.md)),
 lifecycle metrics (`sites_reaped_total`, `reap_errors_total`, gauges), lifecycle logs.
 **Accept:** with fake clock advanced past TTL, tick removes row + files; permanent rows
 untouched (flag manually in test store); startup reaps sites that expired "while down";
@@ -61,12 +62,13 @@ orphan dirs removed; errors on one site don't stop others.
 
 ### S6 — Update in place (`PUT`)
 **Story:** CI re-deploys a preview to the same URL; the timer resets.
-**Depends:** S3 (S5 for the expired-404 test).
-**Scope:** `PUT /api/sites/{id}`, atomic dir swap under per-site lock, `store.Touch`,
-`sites_updated_total`.
+**Depends:** S3, S5 (startup recovery-before-sweep seam).
+**Scope:** `PUT /api/sites/{id}`, [crash-safe swap and recovery](07-update-recovery.md)
+under the per-site lock, `sites_updated_total`.
 **Accept:** PUT replaces content at same URL; `expires_at`/`updated_at` reset;
 permanence preserved; unknown id and expired-unreaped id → 404; parallel PUTs to one id
-serialize (race test with `-race`).
+serialize (race test with `-race`); deterministic fault and restart tests prove
+old-versus-new content and metadata consistency at each decision boundary.
 
 ### S7 — Upload web page (credential-free)
 **Story:** a person drags a zip or folder onto a page and gets their URL — no token,
