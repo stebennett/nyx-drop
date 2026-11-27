@@ -41,6 +41,7 @@ All state lives on the PVC under `DATA_DIR` (default `/data`):
 /data/drop.db                  # SQLite metadata (pure-Go driver, no cgo)
 /data/sites/<site-id>/...      # extracted site files
 /data/tmp/                     # staging area for in-progress uploads
+/data/updates/<id>/<op-id>/    # private PUT staging and rollback copies
 ```
 
 SQLite `sites` table:
@@ -71,7 +72,7 @@ SQLite `sites` table:
 
 **Permanence semantics:** `permanent = true` means the reaper ignores `expires_at`. Unsetting permanence sets `expires_at = now + TTL`, so the site gets a full TTL from the moment of unsetting rather than vanishing instantly.
 
-**Atomic creation:** uploads are extracted into a temp directory under `/data/tmp` (same filesystem) and validated; then the DB row is inserted (reserving the slug — the primary-key constraint is the collision detector) and the directory renamed into `/data/sites/<id>`. A site is never servable in a half-written state. The startup sweep is self-healing in both directions: it removes stale temp directories, site directories with no DB row, and DB rows with no site directory (crash artifacts either side of the rename). If the volume fills mid-extraction (`ENOSPC`), the temp directory is cleaned up and the upload fails with a structured `500`; no partial state remains. There is no global storage quota — the operator sizes the PVC appropriately.
+**Atomic creation:** uploads are extracted into a temp directory under `/data/tmp` (same filesystem) and validated; then the DB row is inserted (reserving the slug — the primary-key constraint is the collision detector) and the directory renamed into `/data/sites/<id>`. A site is never servable in a half-written state. After reconciling interrupted updates, the startup sweep removes ordinary stale temp directories, site directories with no DB row, and DB rows with no site directory (crash artifacts either side of the create rename). The sweep never touches `/data/updates`. If the volume fills mid-extraction (`ENOSPC`), the temp directory is cleaned up and the upload fails with a structured `500`; no partial state remains. There is no global storage quota — the operator sizes the PVC appropriately.
 
 **Schema migrations:** embedded SQL migrations run at startup, versioned via SQLite's `PRAGMA user_version`. Each migration is applied in a transaction; the app refuses to start if the on-disk version is newer than the binary knows.
 
@@ -124,13 +125,13 @@ Body: same `multipart/form-data` format as creation (zip or multiple files).
 
 Replaces the site's contents entirely while keeping its URL, and **resets the timer**: `expires_at = now + TTL` and `updated_at = now` on every successful `PUT`, regardless of permanence. A permanent site can be updated too — its contents are replaced and it stays permanent (the reset `expires_at` is simply ignored while `permanent` is set). All extraction rules and safety limits apply as for creation.
 
-The swap is atomic per directory rename: the new content is extracted and validated in `/data/tmp`, the old site directory is renamed aside, the new one renamed into place, and the old content deleted. In-flight requests may briefly 404 between the two renames; this is accepted. Response is `200` with the same JSON shape as creation. Errors: `404` unknown id, plus the same `401`/`400`/`413` as creation.
+The new content is extracted and validated in `/data/tmp`. A durable update intent records the swap before the old tree is moved into a private backup and the new tree is moved live. A single SQLite commit selects the new tree and its metadata; only then may the old tree be deleted. On failure before commit, restore the old tree with unchanged metadata; on restart, select the old or new tree according to SQLite before running any sweeps. Public requests may briefly return 404 during the swap but never serve the wrong tree for the chosen row. See [REVIEW-02](../../implementation/07-update-recovery.md) for the exact rollback, durability and restart rules. The `200` response has the same JSON shape as creation and confirms a durable replacement. Errors: `404` unknown id, plus the same `401`/`400`/`413`/`500` as creation. An uncertain commit or lost response does not prove the update was rolled back.
 
 This enables stable URLs for CI use ("redeploy the preview for PR #42"): create once, then `PUT` to the returned `id` on every push.
 
 `PUT` to an **expired-but-not-yet-reaped** site returns `404` — expired means gone on all token-authenticated and public surfaces, regardless of whether the reaper has physically caught up.
 
-**Per-site concurrency:** mutating and snapshotting operations on the same site id (`PUT`, admin delete, download snapshot, reap) are serialized by a per-site lock. Concurrent `PUT`s are last-write-wins in arrival order; a download snapshot never observes a half-swapped site. Operations on different sites do not block each other.
+**Per-site concurrency:** mutating and snapshotting operations on the same site id (`PUT`, admin delete, permanence changes, download snapshot, reap) are serialized by a per-site lock. Concurrent `PUT`s are last-successful-commit-wins in lock order after staging; a download snapshot never observes a half-swapped site. Operations on different sites do not share a site lock.
 
 ### Upload page
 
@@ -202,14 +203,14 @@ Served at `<SCHEME>://<BASE_DOMAIN>/admin` (embedded static frontend compiled in
 
 ## Lifecycle — the reaper
 
-A background goroutine runs at startup and then every minute:
+Before accepting traffic, reconcile interrupted updates, then run the generic startup sweep and the expiry pass. Thereafter the reaper runs the expiry pass every minute:
 
 1. Query sites where `permanent = false AND expires_at <= now`.
-2. For each: take the per-site lock, re-check the `permanent` flag (an admin may have rescued the site since the query), then delete the DB row and remove the site directory.
+2. For each: take the per-site lock, settle any update intent, re-check the current expiry and `permanent` flag (the site may have been updated or rescued since the query), then delete the DB row and remove the site directory.
 
-Deleting the row first guarantees an expired site stops being served immediately; the startup sweep (see Atomic creation) removes orphaned directories and orphaned rows, covering a crash between any two steps. Because metadata (including the permanent flag) lives in SQLite on the PVC, permanence survives pod and node restarts. Sites that expired while the pod was down are reaped by the startup run.
+Deleting the row first makes new lookups fail immediately. The generic startup sweep (see Atomic creation) removes create/delete orphans only after update recovery has established which directories belong to live rows. Because metadata (including the permanent flag) lives in SQLite on the PVC, permanence survives pod and node restarts. The startup expiry pass reaps sites using the recovered row's expiry and permanence.
 
-**TTL is not retroactive:** each site's `expires_at` is fixed at creation (or at permanence-unset). Redeploying with a changed `TTL` affects only future sites and future unsets; existing sites keep their stored expiry. This is intended behavior.
+**TTL is not retroactive:** each site's `expires_at` is fixed at creation, successful PUT, or permanence-unset. Redeploying with a changed `TTL` does not itself change any stored expiry.
 
 ## Static serving
 
@@ -218,7 +219,7 @@ Deleting the row first guarantees an expired site stops being served immediately
 For requests to `<slug>.<BASE_DOMAIN>`:
 
 1. Look up the slug in SQLite. Missing, or expired-but-not-yet-reaped → 404 page.
-2. Serve files rooted at `/data/sites/<slug>` with path-traversal-safe resolution.
+2. Respect the PUT serving fence and verify the pinned live root matches the row's content generation before serving files with path-traversal-safe resolution (see [REVIEW-02](../../implementation/07-update-recovery.md)).
 3. Directory paths serve their `index.html`; missing files → plain 404.
 4. Standard content types and ETag/conditional-request handling (including `HEAD` and `Range`) via Go's `http.ServeContent`/`http.ServeFile`.
 5. All site responses carry `X-Content-Type-Options: nosniff` — the content is untrusted user uploads.

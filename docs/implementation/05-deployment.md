@@ -98,6 +98,9 @@ affinity: {}
   the volume), `capabilities: {drop: [ALL]}`. Volume mounted at `/data`. When
   `metrics.scrapeAnnotations`, add `prometheus.io/scrape: "true"`,
   `prometheus.io/port: "8080"`, `prometheus.io/path: "/metrics"` to pod annotations.
+  Keep `Recreate` for [PUT recovery](07-update-recovery.md): only one process may
+  own the volume. The listener starts only after recovery; budget enough startup
+  time for reconciliation before liveness checks can trigger a restart.
 - **ingress.yaml**: two rules — host `{{ .Values.config.baseDomain }}` and host
   `*.{{ .Values.config.baseDomain }}` — both routing `/` (Prefix) to the service.
   One `tls` block covering both hosts with `secretName` when enabled.
