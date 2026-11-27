@@ -31,6 +31,10 @@ Unauthenticated. Mints a short-lived credential for browser uploads (see the spe
 
 ### Create — `POST /api/sites`
 
+CARD-003 implements the `UPLOAD_TOKEN` and single-ZIP variant below. Upload
+grants and `files` mode are part of later slices. ZIP paths longer than 4095
+bytes (excluding a directory's trailing slash) are rejected with `400`.
+
 Auth: `Authorization: Bearer <credential>` where the credential is either the
 `UPLOAD_TOKEN` (recorded as `source: "api"`) or a valid unused upload grant
 (`source: "web"`). Resolution order: constant-time compare against `UPLOAD_TOKEN`

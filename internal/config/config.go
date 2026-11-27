@@ -167,7 +167,16 @@ func (c *Config) Addr() string {
 // when nonstandard. HTTP defaults to the listener for direct local use;
 // HTTPS defaults to the standard ingress port, not the internal listener.
 func (c *Config) ExternalOrigin() string {
-	origin := c.Scheme + "://" + c.BaseDomain
+	return c.externalOrigin(c.BaseDomain)
+}
+
+// SiteURL returns the public URL for an already validated site ID.
+func (c *Config) SiteURL(id string) string {
+	return c.externalOrigin(id + "." + c.BaseDomain)
+}
+
+func (c *Config) externalOrigin(host string) string {
+	origin := c.Scheme + "://" + host
 	port := c.PublicPort
 	if port == 0 && c.Scheme == "http" {
 		port = c.Port
