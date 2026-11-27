@@ -71,3 +71,49 @@ local `main` will silently absorb them into its diff. The deliver phase MUST
   stray file, move it to the session scratchpad rather than deleting it.
 - It also blocks compound `git checkout` commands containing `--force`, even when the
   `--force` belongs to a later `git worktree remove`. Split such chains into separate calls.
+
+## The coverage target is a layer aggregate, not a per-function floor
+
+**`config.md`'s `coverage_target` names one ratio measured across the whole named
+core-logic layer — covered statements over total statements, summed over the layer.
+It is not a floor that each individual function must clear on its own.** A function
+sitting below the number does not fail the gate as long as the layer aggregate meets
+it.
+
+This refines how every `design.md` `## Test strategy` is written and how every
+`card-tester` reads it, so the ambiguity that cost CARD-001 a phase cycle
+(`renderNotFound` at 71.4% blocked while its layer stood at 92.0% — see
+`CARD-001-walking-skeleton/feedback.md`) cannot recur.
+
+### For `card-designer`
+
+State the coverage target in `## Test strategy` as a layer aggregate, explicitly:
+enumerate the packages/functions that make up the core-logic layer, and say in words
+"aggregate across the layer, not a per-function floor". Never present the enumerated
+list in a form a reader can mistake for a set of per-function minimums.
+
+### For `card-tester`
+
+Measure the figure; never eyeball it per function. From the card's worktree:
+
+    go test -coverprofile=cover.out ./...
+    go tool cover -func=cover.out
+
+The layer figure is the sum of covered statements over total statements across the
+layer's functions — the per-block statement counts recorded in `cover.out`, not an
+average of the per-function percentages. `go tool cover -func=cover.out` gives the
+per-function breakdown so you can see which functions contribute; when the profile is
+scoped to the layer's packages, its `total:` line is that aggregate directly. Compare
+the one ratio to the target. Do not fail a function that sits below the target while
+the aggregate clears it.
+
+### Unreachable error paths are not coverage debt
+
+Some statements cannot be exercised without contriving a failure the design's types
+make impossible — e.g. the error return of `template.ParseFS` over a compile-time
+`embed.FS`, or `tmpl.Execute` of a fixed one-field struct. Do not inject a breakable
+seam (an `fs.FS` parameter, a deliberately failing writer) that deviates from a merged
+design's fixed signature purely to cover such a line and move the metric. Leave it
+uncovered; the layer aggregate already accounts for it, and changing a shipped
+interface to satisfy a coverage number is the wrong trade. A genuinely reachable
+uncovered branch is different — that is real coverage debt; treat the two apart.
