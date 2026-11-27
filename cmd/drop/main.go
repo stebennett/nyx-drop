@@ -20,6 +20,7 @@ import (
 	"nyx-drop/internal/config"
 	"nyx-drop/internal/metrics"
 	"nyx-drop/internal/server"
+	"nyx-drop/internal/store"
 )
 
 // idleTimeout bounds how long a keep-alive connection may sit idle
@@ -61,15 +62,16 @@ func run(getenv func(string) string) error {
 	if err != nil {
 		return fmt.Errorf("config: %w", err)
 	}
+	st, err := store.Open(cfg.DataDir)
+	if err != nil {
+		return fmt.Errorf("store: %w", err)
+	}
+	defer st.Close()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
 	clk := clock.Real{}
 	reg := prometheus.NewRegistry()
 	m := metrics.New(reg)
-
-	// S1 readiness is a stub that always succeeds; CARD-002 replaces this
-	// with a real DB-ping + data-dir-writability check.
-	health := func(context.Context) error { return nil }
 
 	handler, err := server.New(server.Deps{
 		Config:   cfg,
@@ -77,7 +79,7 @@ func run(getenv func(string) string) error {
 		Logger:   logger,
 		Metrics:  m,
 		Registry: reg,
-		Health:   health,
+		Health:   store.Readiness(st, cfg.DataDir),
 	})
 	if err != nil {
 		return fmt.Errorf("server: %w", err)

@@ -30,8 +30,9 @@ an older binary without recovery support from starting against the evolved schem
   2. If v > highest known migration → return error (binary older than DB); app must
      refuse to start.
   3. For each migration n > v: run inside a transaction, then `PRAGMA user_version = n`.
-- Timestamps are stored as **RFC 3339 UTC strings** (`TEXT`). RFC 3339 sorts
-  lexicographically, so SQL `ORDER BY`/comparisons work; parse to `time.Time` on scan.
+- Timestamps are stored as **fixed-width RFC 3339 UTC strings** (`TEXT`), always
+  with nine fractional digits. This preserves nanoseconds and ensures SQL
+  lexicographic comparisons match chronological order. Parse to `time.Time` on scan.
 
 ### `0001_init.sql`
 

@@ -9,9 +9,10 @@ Single Go binary, SQLite + PVC storage, wildcard-ingress host routing, GitHub OA
 admin, token/grant-gated upload API. See `docs/superpowers/specs/` for the full
 design and `docs/implementation/` for build notes.
 
-**Current state:** walking skeleton (CARD-001 / slice S1). The binary runs, answers
-`/healthz` and `/metrics`, and serves the branded not-found page for any host that
-isn't the apex — no site creation or serving yet.
+**Current state:** SQLite storage and readiness (CARD-002 / slice S2). The binary
+migrates the database at startup. `/healthz` returns `200` only if SQLite answers
+a ping and the data directory is writable; otherwise it returns `503`. Site
+creation and serving are not implemented yet.
 
 ## Configuration
 
@@ -29,7 +30,7 @@ exits 1).
 | `GITHUB_CLIENT_SECRET` | yes | — | GitHub OAuth app client secret. |
 | `ADMIN_GITHUB_USER` | yes | — | GitHub username allowed to sign in as admin (case-insensitive). |
 | `SESSION_SECRET` | yes | — | Secret used to sign admin session cookies. |
-| `DATA_DIR` | no | `/data` | Root directory for the SQLite DB and site files. |
+| `DATA_DIR` | no | `/data` | Must already exist and be writable by the process. Holds `drop.db` and its SQLite sidecar files. |
 | `MAX_UPLOAD_SIZE` | no | `100MB` | Per-upload size cap. Accepts decimal (`KB`/`MB`/`GB`), binary (`KiB`/`MiB`/`GiB`), bare single-letter decimal aliases (`K`/`M`/`G`), or bare-byte sizes. |
 | `MAX_SITE_SIZE` | no | `500MB` | Per-site total size cap, same size syntax as above. |
 | `MAX_FILE_COUNT` | no | `10000` | Max files per site, must be `> 0`. |
@@ -49,6 +50,7 @@ export BASE_DOMAIN=localtest.me SCHEME=http PORT=8080 \
        UPLOAD_TOKEN=dev-token SESSION_SECRET=dev-secret-please-change \
        GITHUB_CLIENT_ID=... GITHUB_CLIENT_SECRET=... ADMIN_GITHUB_USER=you \
        DATA_DIR=./tmp/data TTL=1h
+mkdir -p "$DATA_DIR"
 go run ./cmd/drop
 ```
 
@@ -77,6 +79,7 @@ gofmt -l .                           # must be empty
 ```sh
 docker build -t nyx-drop .
 docker run --rm -p 8080:8080 \
+  --tmpfs /data:rw,uid=65532,gid=65532,mode=0700 \
   -e BASE_DOMAIN=localtest.me -e SCHEME=http \
   -e UPLOAD_TOKEN=dev-token -e SESSION_SECRET=dev-secret \
   -e GITHUB_CLIENT_ID=... -e GITHUB_CLIENT_SECRET=... -e ADMIN_GITHUB_USER=you \
@@ -84,8 +87,9 @@ docker run --rm -p 8080:8080 \
 ```
 
 The image is a two-stage build ending in `gcr.io/distroless/static:nonroot`,
-running as uid `65532`. Frontend assets are embedded in the binary via
-`embed.FS`; nothing else is copied into the image.
+running as uid `65532`. The example uses ephemeral storage; for a persistent
+database, mount a writable volume at `/data` instead. Frontend assets are
+embedded in the binary via `embed.FS`; nothing else is copied into the image.
 
 ## Repository layout
 
@@ -95,9 +99,10 @@ internal/clock/    injected Clock (Real, Fake) — never time.Now() in handlers
 internal/config/   env parsing/validation (Load), human-readable size parsing (ParseSize)
 internal/metrics/  Prometheus registry wiring
 internal/server/   HTTP routing, middleware, page rendering
+internal/store/    SQLite site metadata, migrations, readiness probe
 web/                embedded frontend assets (embed.FS)
 ```
 
-This grows as later cards add the SQLite store, site creation/serving, the upload
+This grows as later cards add site creation/serving, the upload
 page, and admin OAuth — see `docs/implementation/06-vertical-slices.md` for the
 build order.
