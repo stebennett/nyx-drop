@@ -108,7 +108,7 @@ affinity: {}
   `uploadToken`, `githubClientSecret`, `sessionSecret`. Helpers must fail the render
   (`required`) if a needed value is missing in both places.
 - **NOTES.txt**: print the app URL, admin URL, and a reminder to create the DNS
-  wildcard record and the GitHub OAuth app (callback `SCHEME://BASE_DOMAIN/auth/callback`).
+  wildcard record and the GitHub OAuth app (callback `<public origin>/auth/callback`).
 
 ### Chart tests
 
@@ -136,7 +136,10 @@ go run ./cmd/drop
 
 `*.localtest.me` resolves to 127.0.0.1 publicly, so `http://localtest.me:8080` is the
 app and `http://<slug>.localtest.me:8080` serves sites with zero /etc/hosts fiddling.
-(Host normalization strips the `:8080`.) For OAuth locally, create a separate GitHub
-OAuth app with callback `http://localtest.me:8080/auth/callback`.
+(Host normalization strips the `:8080` for routing, not for generated links.)
+Set `PUBLIC_PORT` to the browser-facing port if it differs from the HTTP listener
+or from the standard HTTPS port `443`. It does not change the listener. For
+OAuth locally, create a separate GitHub OAuth app with callback
+`http://localtest.me:8080/auth/callback`.
 
 Document all of this in the README.

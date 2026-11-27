@@ -24,6 +24,7 @@ exits 1).
 |---|---|---|---|
 | `BASE_DOMAIN` | yes | — | Multi-label DNS hostname, e.g. `sites.nyxhub.net`. No scheme, port, or path. |
 | `SCHEME` | no | `https` | `http` or `https`. |
+| `PUBLIC_PORT` | no | unset | Browser-facing port, `1..65535`. When unset, HTTP uses `PORT` for direct local access and HTTPS assumes `443` for ingress. The standard port for the scheme is omitted from the URL. |
 | `TTL` | no | `24h` | Site lifetime, `time.ParseDuration` syntax, must be `> 0`. |
 | `UPLOAD_TOKEN` | yes | — | Bearer token gating the upload API. |
 | `GITHUB_CLIENT_ID` | yes | — | GitHub OAuth app client ID (admin login). |
@@ -44,6 +45,11 @@ exits 1).
 zero `/etc/hosts` changes: `http://localtest.me:8080` is the app, and
 `http://<slug>.localtest.me:8080` would serve a site (host normalization strips the
 `:8080`).
+
+The branded 404's deploy link uses the configured app origin. For a direct
+local run on another port, set `PORT` (e.g. `PORT=8181`). If a proxy or container
+mapping exposes a different port (e.g. `-p 9080:8080`), set `PUBLIC_PORT=9080`
+and leave `PORT=8080`. `PUBLIC_PORT` does not change where the app listens.
 
 ```sh
 export BASE_DOMAIN=localtest.me SCHEME=http PORT=8080 \

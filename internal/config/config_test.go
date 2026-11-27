@@ -141,3 +141,50 @@ func TestConfig_Accessors(t *testing.T) {
 		t.Errorf("ExternalOrigin() = %q, want https://sites.nyxhub.net", got)
 	}
 }
+
+func TestConfig_ExternalOrigin(t *testing.T) {
+	cases := []struct {
+		name, scheme, port, publicPort, wantOrigin, wantAddr string
+	}{
+		{"HTTPS ingress", "", "8080", "", "https://localtest.me", ":8080"},
+		{"HTTP default listener", "http", "", "", "http://localtest.me:8080", ":8080"},
+		{"HTTP custom listener", "http", "8181", "", "http://localtest.me:8181", ":8181"},
+		{"HTTP standard listener", "http", "80", "", "http://localtest.me", ":80"},
+		{"HTTP mapped port", "http", "8080", "9080", "http://localtest.me:9080", ":8080"},
+		{"HTTP standard override", "http", "8080", "80", "http://localtest.me", ":8080"},
+		{"HTTPS custom public port", "https", "8080", "8443", "https://localtest.me:8443", ":8080"},
+		{"HTTPS standard override", "https", "8080", "443", "https://localtest.me", ":8080"},
+		{"HTTPS port 80 is not standard", "https", "8080", "80", "https://localtest.me:80", ":8080"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			env := validEnv()
+			env["BASE_DOMAIN"] = "LOCALTEST.me"
+			env["SCHEME"] = c.scheme
+			env["PORT"] = c.port
+			env["PUBLIC_PORT"] = c.publicPort
+			cfg, err := Load(getenvFromMap(env))
+			if err != nil {
+				t.Fatalf("Load() unexpected error: %v", err)
+			}
+			if got := cfg.ExternalOrigin(); got != c.wantOrigin {
+				t.Errorf("ExternalOrigin() = %q, want %q", got, c.wantOrigin)
+			}
+			if got := cfg.Addr(); got != c.wantAddr {
+				t.Errorf("Addr() = %q, want %q", got, c.wantAddr)
+			}
+		})
+	}
+}
+
+func TestLoad_InvalidPublicPort(t *testing.T) {
+	for _, port := range []string{"0", "-1", "65536", "not-a-port", ":8080"} {
+		t.Run(port, func(t *testing.T) {
+			env := validEnv()
+			env["PUBLIC_PORT"] = port
+			if _, err := Load(getenvFromMap(env)); err == nil || !strings.HasPrefix(err.Error(), "PUBLIC_PORT ") {
+				t.Errorf("Load() error = %v, want PUBLIC_PORT validation error", err)
+			}
+		})
+	}
+}

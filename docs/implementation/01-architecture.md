@@ -158,7 +158,8 @@ Order for apex routes: `requestLog` → `metrics` → route-specific guards.
 - `requireSession`: validates `__Host-session`; API routes → 401 JSON, page routes →
   302 `/auth/login`.
 - `checkOrigin`: on state-changing admin/auth routes, if `Origin` (else `Referer`)
-  is present it must equal `cfg.ExternalOrigin()` (`SCHEME://BASE_DOMAIN`); mismatch → 403.
+  is present it must equal `cfg.ExternalOrigin()` (scheme, apex host, and any
+  nonstandard public port); mismatch → 403.
 - `maxBytes`: wraps body with `http.MaxBytesReader(w, r.Body, cfg.MaxUploadSize)`;
   a `*http.MaxBytesError` from parsing maps to 413.
 

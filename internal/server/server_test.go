@@ -179,6 +179,43 @@ func TestSiteHost_404UntilStore(t *testing.T) {
 	assertBranded404(t, rec)
 }
 
+func TestBranded404_UsesConfiguredLocalOrigin(t *testing.T) {
+	cfg := &config.Config{BaseDomain: "localtest.me", Scheme: "http", Port: 8181}
+	reg := prometheus.NewRegistry()
+	h, err := New(Deps{
+		Config:   cfg,
+		Logger:   slog.New(slog.NewJSONHandler(io.Discard, nil)),
+		Metrics:  metrics.New(reg),
+		Registry: reg,
+		Health:   func(context.Context) error { return nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, host := range []string{"missing.localtest.me:8181", "unrelated.example.com:9999"} {
+		t.Run(host, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/missing", nil)
+			req.Host = host
+			req.Header.Set("X-Forwarded-Host", "proxy.example.com:9090")
+			req.Header.Set("X-Forwarded-Proto", "https")
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			assertBranded404(t, rec)
+			const wantLink = `<a href="http://localtest.me:8181">Deploy a new site at http://localtest.me:8181</a>`
+			body := rec.Body.String()
+			if !strings.Contains(body, wantLink) {
+				start := strings.Index(body, "<a href=")
+				if start < 0 {
+					t.Fatal("branded 404 is missing the deploy link")
+				}
+				gotLink, _, _ := strings.Cut(body[start:], "\n")
+				t.Errorf("deploy link = %q, want %q", gotLink, wantLink)
+			}
+		})
+	}
+}
+
 func TestApex_404Placeholder(t *testing.T) {
 	h, _ := newTestServer(t, nil)
 

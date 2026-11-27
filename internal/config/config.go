@@ -17,6 +17,7 @@ import (
 type Config struct {
 	BaseDomain         string // lowercased, validated DNS name
 	Scheme             string // "http" | "https"
+	PublicPort         int    // 0 means use the scheme's default policy
 	TTL                time.Duration
 	UploadToken        string
 	GitHubClientID     string
@@ -139,6 +140,14 @@ func Load(getenv func(string) string) (*Config, error) {
 	}
 	cfg.Port = port
 
+	if raw := getenv("PUBLIC_PORT"); raw != "" {
+		publicPort, err := strconv.ParseUint(raw, 10, 16)
+		if err != nil || publicPort == 0 {
+			return nil, fmt.Errorf("PUBLIC_PORT %q is invalid: must be a decimal port between 1 and 65535", raw)
+		}
+		cfg.PublicPort = int(publicPort)
+	}
+
 	logLevelStr := strings.ToLower(stringOr(getenv("LOG_LEVEL"), "info"))
 	logLevel, err := parseLogLevel(logLevelStr)
 	if err != nil {
@@ -154,10 +163,19 @@ func (c *Config) Addr() string {
 	return ":" + strconv.Itoa(c.Port)
 }
 
-// ExternalOrigin returns the scheme+host used to build public URLs and
-// validate the Origin header (e.g. "https://sites.nyxhub.net").
+// ExternalOrigin returns the configured public origin, including the port
+// when nonstandard. HTTP defaults to the listener for direct local use;
+// HTTPS defaults to the standard ingress port, not the internal listener.
 func (c *Config) ExternalOrigin() string {
-	return c.Scheme + "://" + c.BaseDomain
+	origin := c.Scheme + "://" + c.BaseDomain
+	port := c.PublicPort
+	if port == 0 && c.Scheme == "http" {
+		port = c.Port
+	}
+	if port == 0 || (c.Scheme == "http" && port == 80) || (c.Scheme == "https" && port == 443) {
+		return origin
+	}
+	return origin + ":" + strconv.Itoa(port)
 }
 
 // requireString reads name from getenv and errors (naming the variable)
