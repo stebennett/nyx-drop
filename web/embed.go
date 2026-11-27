@@ -6,5 +6,5 @@ package web
 
 import "embed"
 
-//go:embed notfound.html
+//go:embed notfound.html unauthorized.html
 var Files embed.FS

@@ -85,11 +85,15 @@ func siteLabel(host, baseDomain string) (slug string, ok bool) {
 }
 
 // routeClass classifies a request's Host for the HTTP request histogram:
-// the apex host is "app", everything else (site host, multi-label,
-// unknown) is "site". "admin" is reserved for CARD-008/009. See ADR-0002.
+// apex admin page/API paths are "admin", other apex paths are "app", and
+// all non-apex hosts are "site". See ADR-0002.
 func routeClass(cfg *config.Config, r *http.Request) string {
 	host := normalizeHost(r.Host)
 	if host == cfg.BaseDomain {
+		p := r.URL.Path
+		if p == "/admin" || strings.HasPrefix(p, "/admin/") || p == "/api/admin" || strings.HasPrefix(p, "/api/admin/") {
+			return "admin"
+		}
 		return "app"
 	}
 	return "site"

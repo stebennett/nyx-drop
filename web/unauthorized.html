@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nyx Drop — Not authorized</title>
+<style>
+  :root {
+    --bg: #eef1f8; --surface: #fff; --text: #1a2138; --muted: #5a6382; --moon: #b8912c; --link: #3d56b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c111f; --surface: #151c2f; --text: #e9ecf6; --muted: #98a1bd; --moon: #e9c763; --link: #9db0f2;
+    }
+  }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
+  header { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  svg { width: 24px; height: 24px; fill: var(--moon); }
+  main { max-width: 42ch; margin: 48px auto; padding: 24px; border-radius: 12px; background: var(--surface); text-align: center; }
+  h1 { font: 600 1.5rem ui-serif, Georgia, serif; }
+  p { color: var(--muted); overflow-wrap: anywhere; }
+  a { color: var(--link); }
+</style>
+</head>
+<body>
+<header><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>Nyx Drop</header>
+<main>
+  <h1>Not authorized</h1>
+  <p>The GitHub account <strong>{{.}}</strong> isn't allowed to administer this service.</p>
+  <a href="/auth/login">Sign in with a different account</a>
+</main>
+</body>
+</html>
