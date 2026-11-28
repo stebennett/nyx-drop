@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"nyx-drop/internal/auth"
 	"nyx-drop/internal/clock"
 	"nyx-drop/internal/config"
 	"nyx-drop/internal/metrics"
@@ -25,13 +26,14 @@ type HealthFunc func(context.Context) error
 // Deps are server.New's dependencies, as a struct (not positional args) so
 // later cards add wiring (store, locks, auth) without breaking call sites.
 type Deps struct {
-	Config   *config.Config
-	Clock    clock.Clock
-	Logger   *slog.Logger
-	Metrics  *metrics.Metrics
-	Registry *prometheus.Registry // for the /metrics handler
-	Health   HealthFunc
-	Store    *store.DB // nil only for routing/readiness fixtures
+	Config          *config.Config
+	Clock           clock.Clock
+	Logger          *slog.Logger
+	Metrics         *metrics.Metrics
+	Registry        *prometheus.Registry // for the /metrics handler
+	Health          HealthFunc
+	Store           *store.DB            // nil only for routing/readiness fixtures
+	GitHubEndpoints auth.GitHubEndpoints // zero value uses GitHub; tests can inject a stub
 }
 
 // srv holds the wiring New assembles, including the cached not-found page.
@@ -62,6 +64,9 @@ func New(d Deps) (http.Handler, error) {
 		if err := s.registerSiteRoutes(); err != nil {
 			return nil, err
 		}
+	}
+	if err := registerAdminRoutes(s.apexMux, d); err != nil {
+		return nil, err
 	}
 	s.routed = requestLog(d.Logger)(instrument(d.Metrics, d.Config)(http.HandlerFunc(s.rootHost)))
 

@@ -11,8 +11,9 @@ design and `docs/implementation/` for build notes.
 
 **Current state:** Token-gated ZIP uploads and static serving (CARD-003 / slice S3).
 `POST /api/sites` creates a site, and its returned URL is public until expiry.
-Multi-file uploads, browser upload grants, PUT, admin, and on-disk cleanup of
-expired sites are not implemented yet. `/healthz` checks SQLite and data-directory
+GitHub OAuth sign-in is available for the configured admin. Multi-file uploads,
+browser upload grants, PUT, admin site management, and on-disk cleanup of expired
+sites are not implemented yet. `/healthz` checks SQLite and data-directory
 writability.
 
 ## Configuration
@@ -84,6 +85,21 @@ Expect `201` with `id`, `url`, and `expires_at` in UTC. Open `url` to see the
 uploaded page. Without wildcard DNS, use `curl --noproxy '*' --resolve
 <returned-host>:8080:127.0.0.1 <returned-url>` with the returned host and URL.
 
+## Admin sign-in
+
+Register a GitHub OAuth app with callback `<public origin>/auth/callback`,
+including any non-default public port. Leave wildcard callback matching off.
+Set `GITHUB_CLIENT_ID`,
+`GITHUB_CLIENT_SECRET`, `ADMIN_GITHUB_USER` (the single permitted login), and
+`SESSION_SECRET` (a strong random secret). Use HTTPS in production. For local
+HTTP only, use a separate OAuth app with callback
+`http://localtest.me:8080/auth/callback` (adjust for `PORT` or `PUBLIC_PORT`).
+
+Visit `/admin` to sign in. The page currently offers sign-out; the site list
+and management actions are separate cards. Sign-out clears the browser's
+7-day session cookie; it does not revoke a copy. Rotating `SESSION_SECRET`
+invalidates existing sessions and sign-ins in progress.
+
 ## Testing
 
 ```sh
@@ -115,6 +131,7 @@ embedded in the binary via `embed.FS`; nothing else is copied into the image.
 
 ```
 cmd/drop/          process entrypoint (config -> logger -> clock -> server -> http.Server)
+internal/auth/     GitHub OAuth and signed admin credentials
 internal/clock/    injected Clock (Real, Fake) — never time.Now() in handlers
 internal/config/   env parsing/validation (Load), human-readable size parsing (ParseSize)
 internal/extract/  ZIP validation and private staging
