@@ -80,6 +80,7 @@ func run(getenv func(string) string) error {
 		Metrics:  m,
 		Registry: reg,
 		Health:   store.Readiness(st, cfg.DataDir),
+		Store:    st,
 	})
 	if err != nil {
 		return fmt.Errorf("server: %w", err)

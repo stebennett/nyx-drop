@@ -10,10 +10,10 @@ import (
 )
 
 // Metrics holds the collectors this process exposes on /metrics.
-// Lifecycle counters/gauges (sites_active, sites_created_total, ...) are
-// added by the cards that emit them.
 type Metrics struct {
 	HTTPDuration *prometheus.HistogramVec
+	SitesCreated prometheus.Counter
+	UploadBytes  prometheus.Counter
 }
 
 // New registers the Go runtime collector, the process collector, and the
@@ -28,8 +28,16 @@ func New(reg prometheus.Registerer) *Metrics {
 			Name: "http_request_duration_seconds",
 			Help: "HTTP request duration in seconds, by route class.",
 		}, []string{"class"}),
+		SitesCreated: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "sites_created_total",
+			Help: "Total number of sites successfully published.",
+		}),
+		UploadBytes: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "upload_bytes_total",
+			Help: "Total uploaded ZIP bytes for successfully published sites.",
+		}),
 	}
-	reg.MustRegister(m.HTTPDuration)
+	reg.MustRegister(m.HTTPDuration, m.SitesCreated, m.UploadBytes)
 
 	return m
 }

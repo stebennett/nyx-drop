@@ -1,7 +1,7 @@
 // Package server builds the process's http.Handler: ops endpoints
 // (/healthz, /metrics) matched before host routing and bypassing
-// middleware, then host-normalizing routing to the apex mux or a
-// not-found response. See 01-architecture.md "HTTP routing".
+// middleware, then host-normalizing routing to the apex mux or an
+// uploaded site. See 01-architecture.md "HTTP routing".
 package server
 
 import (
@@ -15,6 +15,7 @@ import (
 	"nyx-drop/internal/clock"
 	"nyx-drop/internal/config"
 	"nyx-drop/internal/metrics"
+	"nyx-drop/internal/store"
 )
 
 // HealthFunc reports process readiness. In production it checks the DB and
@@ -30,17 +31,17 @@ type Deps struct {
 	Metrics  *metrics.Metrics
 	Registry *prometheus.Registry // for the /metrics handler
 	Health   HealthFunc
+	Store    *store.DB // nil only for routing/readiness fixtures
 }
 
-// srv holds the wiring New assembles: the rendered not-found page (cached
-// at startup, not per-request), the apex mux (empty in S1; CARD-007/008/009
-// add patterns), the /metrics handler, and the middleware-wrapped router.
+// srv holds the wiring New assembles, including the cached not-found page.
 type srv struct {
 	deps          Deps
 	notFoundBytes []byte
 	apexMux       *http.ServeMux
 	metricsH      http.Handler
 	routed        http.Handler
+	sites         *siteRoutes
 }
 
 // New renders the 404 page once and wires routing + middleware into a
@@ -57,15 +58,20 @@ func New(d Deps) (http.Handler, error) {
 		apexMux:       http.NewServeMux(),
 		metricsH:      promhttp.HandlerFor(d.Registry, promhttp.HandlerOpts{}),
 	}
+	if d.Store != nil {
+		if err := s.registerSiteRoutes(); err != nil {
+			return nil, err
+		}
+	}
 	s.routed = requestLog(d.Logger)(instrument(d.Metrics, d.Config)(http.HandlerFunc(s.rootHost)))
 
-	return http.HandlerFunc(s.top), nil
+	return s, nil
 }
 
-// top matches /healthz and /metrics on any Host before host routing and
+// ServeHTTP matches /healthz and /metrics on any Host before host routing and
 // middleware; everything else goes through requestLog -> instrument ->
 // rootHost.
-func (s *srv) top(w http.ResponseWriter, r *http.Request) {
+func (s *srv) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/healthz":
 		s.health(w, r)
@@ -77,11 +83,7 @@ func (s *srv) top(w http.ResponseWriter, r *http.Request) {
 	s.routed.ServeHTTP(w, r)
 }
 
-// rootHost classifies the normalized Host: the apex goes to apexMux (an
-// empty *http.ServeMux in S1, so it 404s with Go's plain not-found body
-// until CARD-007/008/009 add patterns); a valid site-host label and any
-// other host both render the branded not-found page (CARD-003 replaces the
-// site-host branch with real serving).
+// rootHost routes the normalized Host to the apex, a site, or a branded 404.
 func (s *srv) rootHost(w http.ResponseWriter, r *http.Request) {
 	cfg := s.deps.Config
 	host := normalizeHost(r.Host)
@@ -90,8 +92,8 @@ func (s *srv) rootHost(w http.ResponseWriter, r *http.Request) {
 		s.apexMux.ServeHTTP(w, r)
 		return
 	}
-	if _, ok := siteLabel(host, cfg.BaseDomain); ok {
-		s.serveNotFound(w, r) // valid site host, no store yet
+	if id, ok := siteLabel(host, cfg.BaseDomain); ok && s.sites != nil {
+		s.sites.serve(w, r, id)
 		return
 	}
 	s.serveNotFound(w, r) // unknown or multi-label host
@@ -112,5 +114,7 @@ func (s *srv) serveNotFound(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusNotFound)
-	w.Write(s.notFoundBytes)
+	if r.Method != http.MethodHead {
+		w.Write(s.notFoundBytes)
+	}
 }

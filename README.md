@@ -9,10 +9,11 @@ Single Go binary, SQLite + PVC storage, wildcard-ingress host routing, GitHub OA
 admin, token/grant-gated upload API. See `docs/superpowers/specs/` for the full
 design and `docs/implementation/` for build notes.
 
-**Current state:** SQLite storage and readiness (CARD-002 / slice S2). The binary
-migrates the database at startup. `/healthz` returns `200` only if SQLite answers
-a ping and the data directory is writable; otherwise it returns `503`. Site
-creation and serving are not implemented yet.
+**Current state:** Token-gated ZIP uploads and static serving (CARD-003 / slice S3).
+`POST /api/sites` creates a site, and its returned URL is public until expiry.
+Multi-file uploads, browser upload grants, PUT, admin, and on-disk cleanup of
+expired sites are not implemented yet. `/healthz` checks SQLite and data-directory
+writability.
 
 ## Configuration
 
@@ -31,7 +32,7 @@ exits 1).
 | `GITHUB_CLIENT_SECRET` | yes | — | GitHub OAuth app client secret. |
 | `ADMIN_GITHUB_USER` | yes | — | GitHub username allowed to sign in as admin (case-insensitive). |
 | `SESSION_SECRET` | yes | — | Secret used to sign admin session cookies. |
-| `DATA_DIR` | no | `/data` | Must already exist and be writable by the process. Holds `drop.db` and its SQLite sidecar files. |
+| `DATA_DIR` | no | `/data` | Must already exist and be writable by the process. Holds SQLite plus app-owned `tmp/` and `sites/` on the same filesystem. |
 | `MAX_UPLOAD_SIZE` | no | `100MB` | Per-upload size cap. Accepts decimal (`KB`/`MB`/`GB`), binary (`KiB`/`MiB`/`GiB`), bare single-letter decimal aliases (`K`/`M`/`G`), or bare-byte sizes. |
 | `MAX_SITE_SIZE` | no | `500MB` | Per-site total size cap, same size syntax as above. |
 | `MAX_FILE_COUNT` | no | `10000` | Max files per site, must be `> 0`. |
@@ -43,7 +44,7 @@ exits 1).
 `*.localtest.me` resolves to `127.0.0.1` publicly, so running with
 `BASE_DOMAIN=localtest.me SCHEME=http` gets you working wildcard subdomains with
 zero `/etc/hosts` changes: `http://localtest.me:8080` is the app, and
-`http://<slug>.localtest.me:8080` would serve a site (host normalization strips the
+`http://<slug>.localtest.me:8080` serves a site (host normalization strips the
 `:8080`).
 
 The branded 404's deploy link uses the configured app origin. For a direct
@@ -67,8 +68,21 @@ curl http://localtest.me:8080/healthz   # -> 200 ok
 curl http://localtest.me:8080/metrics   # -> Prometheus exposition format
 ```
 
-For OAuth locally, create a separate GitHub OAuth app with callback
-`http://localtest.me:8080/auth/callback`.
+With `zip` and `curl` installed, publish a test site (use the same local test
+token as the server):
+
+```sh
+mkdir -p ./tmp/demo
+printf '<h1>Hello from Nyx Drop</h1>\n' > ./tmp/demo/index.html
+zip -j ./tmp/demo.zip ./tmp/demo/index.html
+curl -i --noproxy '*' --resolve localtest.me:8080:127.0.0.1 \
+  -H 'Authorization: Bearer dev-token' -F 'file=@./tmp/demo.zip' \
+  http://localtest.me:8080/api/sites
+```
+
+Expect `201` with `id`, `url`, and `expires_at` in UTC. Open `url` to see the
+uploaded page. Without wildcard DNS, use `curl --noproxy '*' --resolve
+<returned-host>:8080:127.0.0.1 <returned-url>` with the returned host and URL.
 
 ## Testing
 
@@ -103,12 +117,13 @@ embedded in the binary via `embed.FS`; nothing else is copied into the image.
 cmd/drop/          process entrypoint (config -> logger -> clock -> server -> http.Server)
 internal/clock/    injected Clock (Real, Fake) — never time.Now() in handlers
 internal/config/   env parsing/validation (Load), human-readable size parsing (ParseSize)
+internal/extract/  ZIP validation and private staging
+internal/lock/     per-site mutation coordination
 internal/metrics/  Prometheus registry wiring
 internal/server/   HTTP routing, middleware, page rendering
+internal/slug/     random DNS-safe site IDs
 internal/store/    SQLite site metadata, migrations, readiness probe
 web/                embedded frontend assets (embed.FS)
 ```
 
-This grows as later cards add site creation/serving, the upload
-page, and admin OAuth — see `docs/implementation/06-vertical-slices.md` for the
-build order.
+See `docs/implementation/06-vertical-slices.md` for the remaining build order.
